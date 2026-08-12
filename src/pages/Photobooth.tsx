@@ -30,8 +30,12 @@ export default function Photobooth() {
   const [searchParams] = useSearchParams();
 
   // Normalize raw search param slug to match database format perfectly
-  const rawSlug = searchParams.get('event') || 'pima-albay';
-  const eventSlug = rawSlug
+  // 1. Get raw search param and decode URL characters like %20
+  const rawParam = searchParams.get('event') || 'pima-albay';
+  const decodedSlug = decodeURIComponent(rawParam);
+
+  // 2. Sanitize cleanly into a uniform hypenated slug
+  const eventSlug = decodedSlug
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-');
@@ -282,6 +286,49 @@ export default function Photobooth() {
     if (!canvasRef.current || photos.length < 6) return;
     setIsUploading(true);
 
+    // 1. Sanitize slug strictly
+    const cleanSlug = eventSlug
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-');
+
+    // 2. GUARANTEE PARENT ROW EXISTS BEFORE UPLOAD
+    const { data: eventExists } = await supabase
+      .from('events')
+      .select('event_slug')
+      .eq('event_slug', cleanSlug)
+      .maybeSingle();
+
+    if (!eventExists) {
+      // Force-create parent event if missing
+      const defaultName = cleanSlug
+        .split('-')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+
+      const { error: createErr } = await supabase.from('events').upsert(
+        [
+          {
+            event_name: defaultName,
+            event_slug: cleanSlug,
+            title_text: defaultName,
+            subtitle_text: 'Official Event Memory',
+            text_color: '#2C3E50',
+            font_style: 'serif',
+            custom_template_urls: [],
+          },
+        ],
+        { onConflict: 'event_slug' }
+      );
+
+      if (createErr) {
+        alert(`Cannot create matching event row: ${createErr.message}`);
+        setIsUploading(false);
+        return;
+      }
+    }
+
+    // 3. Convert Canvas & Upload Photo
     canvasRef.current.toBlob(
       async (blob) => {
         if (!blob) {
@@ -289,11 +336,16 @@ export default function Photobooth() {
           return;
         }
 
-        const filePath = `${eventSlug}/${Date.now()}_photobooth.jpg`;
+        const filePath = `${cleanSlug}/${Date.now()}_photobooth.jpg`;
 
+        // Upload Storage Blob
         const { error: uploadErr } = await supabase.storage
           .from('event-photos')
-          .upload(filePath, blob, { contentType: 'image/jpeg', cacheControl: '3600' });
+          .upload(filePath, blob, {
+            contentType: 'image/jpeg',
+            cacheControl: '3600',
+            upsert: true,
+          });
 
         if (uploadErr) {
           alert(`Upload failed: ${uploadErr.message}`);
@@ -304,23 +356,24 @@ export default function Photobooth() {
         const { data: publicData } = supabase.storage.from('event-photos').getPublicUrl(filePath);
         const publicUrl = publicData.publicUrl;
 
-        await supabase.from('event_photos').insert([
+        // 4. Insert Photo Record (Foreign Key Guaranteed to Succeed)
+        const { error: dbErr } = await supabase.from('event_photos').insert([
           {
-            event_slug: eventSlug,
+            event_slug: cleanSlug,
             storage_path: filePath,
             public_url: publicUrl,
             template_used: selectedTemplate,
           },
         ]);
 
-        setUploadedUrl(publicUrl);
-        setIsUploading(false);
+        if (dbErr) {
+          console.error('Database insert error:', dbErr);
+          alert(`Failed to record photo in database: ${dbErr.message}`);
+        } else {
+          setUploadedUrl(publicUrl);
+        }
 
-        confetti({
-          particleCount: 120,
-          spread: 80,
-          origin: { y: 0.6 },
-        });
+        setIsUploading(false);
       },
       'image/jpeg',
       0.85
