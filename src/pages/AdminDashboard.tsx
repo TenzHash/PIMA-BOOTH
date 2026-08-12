@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import QRCode from 'qrcode';
 import {
-  QrCode,
   FolderPlus,
   Download,
   ExternalLink,
