@@ -1,0 +1,32 @@
+@import 'tailwindcss';
+
+@layer base {
+  html,
+  body {
+    background-color: #030712;
+    color: #ffffff;
+    font-family:
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      sans-serif;
+  }
+}
+
+/* Safe area padding utilities for iOS notch and home indicator */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0.75rem);
+}
+
+/* Hide scrollbars for clean mobile app feel */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
