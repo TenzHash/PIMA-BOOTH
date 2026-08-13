@@ -30,6 +30,50 @@ interface CameraDevice {
   label: string;
 }
 
+interface TemplateConfig {
+  title: string;
+  subtitle: string;
+  color: string;
+  font: string;
+  gradient: string;
+  sticker: string;
+}
+
+const defaultConfigMap: Record<string, TemplateConfig> = {
+  '1': {
+    title: 'PIMA ALBAY',
+    subtitle: 'WELCOME PARTY 2026',
+    color: '#FFFFFF',
+    font: 'sans-serif',
+    gradient: 'dark',
+    sticker: 'none',
+  },
+  '2': {
+    title: 'PIMA ALBAY',
+    subtitle: 'WELCOME PARTY 2026',
+    color: '#1E293B',
+    font: 'serif',
+    gradient: 'sunset',
+    sticker: 'none',
+  },
+  '3': {
+    title: 'PIMA ALBAY',
+    subtitle: 'WELCOME PARTY 2026',
+    color: '#1E293B',
+    font: 'serif',
+    gradient: 'pastel',
+    sticker: 'none',
+  },
+  '5': {
+    title: 'PIMA',
+    subtitle: 'WELCOME PARTY 2026',
+    color: '#000000',
+    font: 'sans-serif',
+    gradient: 'monochrome',
+    sticker: 'none',
+  },
+};
+
 export default function Photobooth() {
   const [searchParams] = useSearchParams();
 
@@ -59,12 +103,9 @@ export default function Photobooth() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [flashEffect, setFlashEffect] = useState(false);
 
-  // Customization States
-  const [eventName, setEventName] = useState('PIMA ALBAY');
-  const [subtitleText, setSubtitleText] = useState('Official Event Memory');
-  const [textColor, setTextColor] = useState('#2C3E50');
-  const [fontStyle, setFontStyle] = useState('serif');
-
+  // Per-Template Customizations Loaded from Supabase
+  const [templateConfigs, setTemplateConfigs] =
+    useState<Record<string, TemplateConfig>>(defaultConfigMap);
   const [customTemplateUrls, setCustomTemplateUrls] = useState<string[]>([]);
   const [activeCustomOverlayImg, setActiveCustomOverlayImg] = useState<HTMLImageElement | null>(
     null
@@ -74,7 +115,7 @@ export default function Photobooth() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
 
-  // Generate placeholder images for the setup modal preview
+  // Generate placeholder images for modal setup preview
   useEffect(() => {
     const imgs: HTMLImageElement[] = [];
     const colors = ['#1E293B', '#334155', '#475569', '#64748B', '#94A3B8', '#CBD5E1'];
@@ -100,6 +141,7 @@ export default function Photobooth() {
     setDummyImages(imgs);
   }, []);
 
+  // Fetch Event Customizations & Parse template_configs JSON
   useEffect(() => {
     let isMounted = true;
     const fetchEventData = async () => {
@@ -110,10 +152,9 @@ export default function Photobooth() {
         .maybeSingle();
 
       if (isMounted && data) {
-        if (data.event_name) setEventName(data.title_text || data.event_name);
-        if (data.subtitle_text) setSubtitleText(data.subtitle_text);
-        if (data.text_color) setTextColor(data.text_color);
-        if (data.font_style) setFontStyle(data.font_style);
+        if (data.template_configs) {
+          setTemplateConfigs({ ...defaultConfigMap, ...data.template_configs });
+        }
 
         const urls: string[] = data.custom_template_urls || [];
         setCustomTemplateUrls(urls);
@@ -147,15 +188,22 @@ export default function Photobooth() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const currentConfig =
+      templateConfigs[String(selectedTemplate)] ||
+      defaultConfigMap[String(selectedTemplate)] ||
+      defaultConfigMap['5'];
+
     const opts = {
       ctx,
       images: dummyImages,
       width: 1200,
       height: 2400,
-      eventName,
-      subtitleText,
-      textColor,
-      fontStyle,
+      eventName: currentConfig.title,
+      subtitleText: currentConfig.subtitle,
+      textColor: currentConfig.color,
+      fontStyle: currentConfig.font,
+      gradientTheme: currentConfig.gradient,
+      stickerStyle: currentConfig.sticker,
       customOverlayImg: activeCustomOverlayImg,
     };
 
@@ -164,16 +212,7 @@ export default function Photobooth() {
     if (selectedTemplate === 2) renderTemplate2(opts);
     if (selectedTemplate === 3) renderTemplate3(opts);
     if (selectedTemplate === 4) renderCustomPNGTemplate(opts);
-  }, [
-    showSetupModal,
-    selectedTemplate,
-    dummyImages,
-    eventName,
-    subtitleText,
-    textColor,
-    fontStyle,
-    activeCustomOverlayImg,
-  ]);
+  }, [showSetupModal, selectedTemplate, dummyImages, templateConfigs, activeCustomOverlayImg]);
 
   const fetchAvailableCameras = useCallback(async () => {
     try {
@@ -285,8 +324,28 @@ export default function Photobooth() {
 
   const requiredPhotoCount = selectedTemplate === 5 ? 4 : 6;
 
+  // Single Frame Capture (When Timer is OFF)
+  const snapSingleManualFrame = () => {
+    if (photos.length >= requiredPhotoCount) return;
+
+    setFlashEffect(true);
+    setTimeout(() => setFlashEffect(false), 150);
+
+    const frameImg = takeSingleFrame();
+    if (frameImg) {
+      setPhotos((prev) => [...prev, frameImg]);
+    }
+  };
+
+  // Automated Burst Capture (When Timer is ON)
   const startBurstCapture = async () => {
     setShowSetupModal(false);
+
+    // If timer is off, user snaps photos manually with the Snap button
+    if (!useTimer) {
+      return;
+    }
+
     if (isCapturingSeries) return;
     setPhotos([]);
     setIsCapturingSeries(true);
@@ -295,13 +354,11 @@ export default function Photobooth() {
     const captured: HTMLImageElement[] = [];
 
     for (let i = 1; i <= requiredPhotoCount; i++) {
-      if (useTimer) {
-        for (let cd = timerDuration; cd > 0; cd--) {
-          setCountdown(cd);
-          await new Promise((res) => setTimeout(res, 1000));
-        }
-        setCountdown(null);
+      for (let cd = timerDuration; cd > 0; cd--) {
+        setCountdown(cd);
+        await new Promise((res) => setTimeout(res, 1000));
       }
+      setCountdown(null);
 
       setFlashEffect(true);
       setTimeout(() => setFlashEffect(false), 150);
@@ -318,21 +375,29 @@ export default function Photobooth() {
     setIsCapturingSeries(false);
   };
 
+  // Render Final Canvas Output using the active template's settings
   useEffect(() => {
     if (photos.length >= requiredPhotoCount && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
+      const currentConfig =
+        templateConfigs[String(selectedTemplate)] ||
+        defaultConfigMap[String(selectedTemplate)] ||
+        defaultConfigMap['5'];
+
       const opts = {
         ctx,
         images: photos,
         width: 1200,
         height: 2400,
-        eventName,
-        subtitleText,
-        textColor,
-        fontStyle,
+        eventName: currentConfig.title,
+        subtitleText: currentConfig.subtitle,
+        textColor: currentConfig.color,
+        fontStyle: currentConfig.font,
+        gradientTheme: currentConfig.gradient,
+        stickerStyle: currentConfig.sticker,
         customOverlayImg: activeCustomOverlayImg,
       };
 
@@ -342,16 +407,7 @@ export default function Photobooth() {
       if (selectedTemplate === 3) renderTemplate3(opts);
       if (selectedTemplate === 4) renderCustomPNGTemplate(opts);
     }
-  }, [
-    photos,
-    selectedTemplate,
-    eventName,
-    subtitleText,
-    textColor,
-    fontStyle,
-    activeCustomOverlayImg,
-    requiredPhotoCount,
-  ]);
+  }, [photos, selectedTemplate, templateConfigs, activeCustomOverlayImg, requiredPhotoCount]);
 
   const handleSaveAndUpload = async () => {
     if (!canvasRef.current || photos.length < requiredPhotoCount) return;
@@ -383,6 +439,7 @@ export default function Photobooth() {
             subtitle_text: 'Official Event Memory',
             text_color: '#2C3E50',
             font_style: 'serif',
+            template_configs: defaultConfigMap,
             custom_template_urls: [],
           },
         ],
@@ -434,13 +491,15 @@ export default function Photobooth() {
     );
   };
 
+  const activeHeaderConfig = templateConfigs[String(selectedTemplate)] || defaultConfigMap['5'];
+
   return (
     <div className="min-h-[100dvh] bg-gray-950 text-white flex flex-col justify-between p-4 pt-safe pb-safe max-w-md mx-auto touch-none select-none">
       <header className="w-full flex items-center justify-between py-2.5 px-4 bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-800 shadow-xl mb-3 shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
           <h1 className="font-bold text-xs uppercase tracking-wider text-white truncate max-w-[140px]">
-            {eventName}
+            {activeHeaderConfig.title}
           </h1>
         </div>
 
@@ -463,7 +522,7 @@ export default function Photobooth() {
         )}
       </header>
 
-      {/* Pre-Shot Setup Overlay Modal with Live Preview */}
+      {/* Pre-Shot Setup Overlay Modal */}
       {showSetupModal && photos.length === 0 && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -516,41 +575,13 @@ export default function Photobooth() {
                   </button>
                 ))}
               </div>
-
-              {/* Custom PNG Overlays */}
-              {customTemplateUrls.length > 0 && (
-                <div className="pt-2">
-                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">
-                    Custom Event Frames:
-                  </p>
-                  <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                    {customTemplateUrls.map((url, i) => (
-                      <button
-                        key={i}
-                        onClick={() => loadCustomOverlay(url)}
-                        className={`shrink-0 w-10 h-14 rounded-lg overflow-hidden border bg-black ${
-                          selectedTemplate === 4 && activeCustomOverlayImg?.src === url
-                            ? 'border-red-500 ring-2 ring-red-500/50'
-                            : 'border-gray-800 opacity-60'
-                        }`}
-                      >
-                        <img
-                          src={url}
-                          alt={`Custom ${i + 1}`}
-                          className="w-full h-full object-contain p-0.5"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Countdown Settings */}
             <div className="space-y-2 bg-black/40 border border-gray-800 p-3 rounded-2xl">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-gray-200 flex items-center gap-1.5">
-                  <Timer className="w-3 h-3 text-red-500" /> Timer Countdown
+                  <Timer className="w-3 h-3 text-red-500" /> Countdown Timer
                 </span>
                 <button
                   type="button"
@@ -641,16 +672,27 @@ export default function Photobooth() {
               <Settings className="w-5 h-5" />
             </button>
 
-            <button
-              onClick={startBurstCapture}
-              disabled={isCapturingSeries || !!cameraError}
-              className="flex-1 py-4 bg-gradient-to-r from-red-600 to-red-700 active:scale-95 disabled:opacity-50 font-bold text-sm rounded-2xl shadow-xl flex items-center justify-center gap-2 text-white border border-red-500/30 transition-transform"
-            >
-              <Camera className="w-5 h-5" />
-              {isCapturingSeries
-                ? `Taking Shot ${photos.length + 1}...`
-                : `Snap ${requiredPhotoCount} Shots`}
-            </button>
+            {useTimer ? (
+              <button
+                onClick={startBurstCapture}
+                disabled={isCapturingSeries || !!cameraError}
+                className="flex-1 py-4 bg-gradient-to-r from-red-600 to-red-700 active:scale-95 disabled:opacity-50 font-bold text-sm rounded-2xl shadow-xl flex items-center justify-center gap-2 text-white border border-red-500/30 transition-transform"
+              >
+                <Camera className="w-5 h-5" />
+                {isCapturingSeries
+                  ? `Taking Shot ${photos.length + 1}...`
+                  : `Auto-Snap ${requiredPhotoCount} Shots`}
+              </button>
+            ) : (
+              <button
+                onClick={snapSingleManualFrame}
+                disabled={!!cameraError || photos.length >= requiredPhotoCount}
+                className="flex-1 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 active:scale-95 disabled:opacity-50 font-bold text-sm rounded-2xl shadow-xl flex items-center justify-center gap-2 text-white border border-emerald-500/30 transition-transform"
+              >
+                <Camera className="w-5 h-5" />
+                Snap Photo ({photos.length + 1} of {requiredPhotoCount})
+              </button>
+            )}
           </div>
         </main>
       ) : (
