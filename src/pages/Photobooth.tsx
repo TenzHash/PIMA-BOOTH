@@ -282,12 +282,12 @@ export default function Photobooth() {
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach((track) => track.stop());
+        stream.gettracks?.()?.forEach((track: MediaStreamTrack) => track.stop());
       }
     };
   }, [isCameraActive, startCamera]);
 
-  // Completely isolated frame capture: Template 5 uses 3:2 top-aligned crop; 6-shot templates use original full camera aspect ratio
+  // Frame Capture: Apply the same portrait 3:4 top-cropped framing used by the live viewfinder
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
@@ -295,10 +295,8 @@ export default function Photobooth() {
     const videoWidth = video.videoWidth || 1280;
     const videoHeight = video.videoHeight || 720;
 
-    const targetWidth = 1200;
-    // Template 5 (4 shots) forces 3:2 ratio; 6-shot templates preserve native camera aspect ratio
-    const targetHeight =
-      selectedTemplate === 5 ? 800 : Math.round((1200 * videoHeight) / videoWidth);
+    const targetWidth = 900;
+    const targetHeight = 1200; // Portrait 3:4 aspect ratio to match the camera viewfinder
 
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = targetWidth;
@@ -306,21 +304,20 @@ export default function Photobooth() {
     const ctx = tempCanvas.getContext('2d');
     if (!ctx) return null;
 
+    const targetAspect = targetWidth / targetHeight;
+    const videoAspect = videoWidth / videoHeight;
+
     let sourceX = 0,
       sourceY = 0,
       sourceWidth = videoWidth,
       sourceHeight = videoHeight;
 
-    if (selectedTemplate === 5) {
-      const targetAspect = targetWidth / targetHeight;
-      const videoAspect = videoWidth / videoHeight;
-      if (videoAspect > targetAspect) {
-        sourceWidth = videoHeight * targetAspect;
-        sourceX = (videoWidth - sourceWidth) / 2;
-      } else {
-        sourceHeight = videoWidth / targetAspect;
-        sourceY = 0; // Top-align for template 5
-      }
+    if (videoAspect > targetAspect) {
+      sourceWidth = videoHeight * targetAspect;
+      sourceX = (videoWidth - sourceWidth) / 2;
+    } else {
+      sourceHeight = videoWidth / targetAspect;
+      sourceY = 0; // Top-aligned crop to keep faces centered and fully visible
     }
 
     if (isFrontCamera()) {
@@ -671,12 +668,8 @@ export default function Photobooth() {
 
       {photos.length < requiredPhotoCount ? (
         <main className="w-full flex-1 flex flex-col justify-center items-center gap-4 my-auto">
-          {/* Viewfinder dynamically adjusts aspect ratio: 3:2 for Template 5, full native camera container for 6-shot templates */}
-          <div
-            className={`relative w-full ${
-              selectedTemplate === 5 ? 'aspect-[3/2]' : 'aspect-[4/3]'
-            } max-w-[340px] bg-black rounded-3xl overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center`}
-          >
+          {/* Viewfinder box aspect ratio strictly fixed to 3:2 across all templates so the camera box matches the 2nd image */}
+          <div className="relative w-full aspect-[3/4] max-w-[400px] bg-black rounded-[2rem] overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
             {cameraError ? (
               <div className="p-6 text-center text-red-400 flex flex-col items-center gap-2.5">
                 <AlertCircle className="w-10 h-10 text-red-500" />
@@ -689,37 +682,48 @@ export default function Photobooth() {
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover ${selectedTemplate === 5 ? 'object-top' : 'object-center'} ${
-                    isFrontCamera() ? '-scale-x-100' : ''
-                  }`}
+                  className={`w-full h-full object-cover object-top ${isFrontCamera() ? '-scale-x-100' : ''}`}
                 />
 
-                <div className="absolute inset-2 pointer-events-none border border-dashed border-white/30 rounded-2xl">
-                  <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-red-500" />
-                  <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-red-500" />
-                  <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-red-500" />
-                  <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-red-500" />
+                {/* Reference-style portrait framing guide */}
+                <div className="absolute inset-[9%_7%_10%] pointer-events-none border-[3px] border-dashed border-white/55 rounded-[1.5rem]">
+                  <div className="absolute top-4 left-4 w-7 h-7 border-t-[4px] border-l-[4px] border-red-500" />
+                  <div className="absolute top-4 right-4 w-7 h-7 border-t-[4px] border-r-[4px] border-red-500" />
+                  <div className="absolute bottom-4 left-4 w-7 h-7 border-b-[4px] border-l-[4px] border-red-500" />
+                  <div className="absolute bottom-4 right-4 w-7 h-7 border-b-[4px] border-r-[4px] border-red-500" />
+                </div>
+
+                <div className="absolute top-0 left-0 right-0 h-[13%] bg-black/55 backdrop-blur-[2px] flex items-center justify-center z-10">
+                  <span className="text-[11px] sm:text-xs font-black tracking-wide text-white uppercase">
+                    Position Face Here
+                  </span>
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 h-[10%] bg-black/55 backdrop-blur-[2px] flex items-center justify-center z-10">
+                  <span className="text-[10px] sm:text-[11px] font-bold tracking-wide text-white/90 uppercase">
+                    Crop Safety Zone
+                  </span>
                 </div>
               </>
             )}
 
-            <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold border border-white/10 text-white shadow-lg z-10">
+            <div className="absolute top-2 right-2 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-full text-[11px] font-black border border-white/15 text-white shadow-lg z-20">
               {photos.length} / {requiredPhotoCount} Shots
             </div>
 
             {countdown !== null && (
-              <div className="absolute top-3 left-3 bg-red-600/90 text-white backdrop-blur-md px-3 py-1 rounded-full text-xs font-black border border-red-400/40 shadow-xl flex items-center gap-1.5 animate-pulse z-10">
+              <div className="absolute top-2 left-2 bg-red-600/90 text-white backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-black border border-red-400/40 shadow-xl flex items-center gap-1.5 animate-pulse z-20">
                 <Timer className="w-3.5 h-3.5" />
                 <span>SNAP IN {countdown}...</span>
               </div>
             )}
 
             {flashEffect && (
-              <div className="absolute inset-0 bg-white opacity-90 transition-opacity duration-150 z-20" />
+              <div className="absolute inset-0 bg-white opacity-90 transition-opacity duration-150 z-30" />
             )}
           </div>
 
-          <div className="w-full max-w-[340px] flex gap-2">
+          <div className="w-full max-w-[400px] flex gap-2">
             <button
               onClick={() => setShowSetupModal(true)}
               disabled={isCapturingSeries}
@@ -829,6 +833,7 @@ export default function Photobooth() {
 
             <button
               onClick={() => {
+                photos.length < requiredPhotoCount ? null : setPhotos([]);
                 setPhotos([]);
                 setUploadedUrl(null);
                 setShowSetupModal(true);
