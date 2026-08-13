@@ -92,7 +92,6 @@ export default function Photobooth() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Pre-Session Configuration Settings
   const [showSetupModal, setShowSetupModal] = useState<boolean>(true);
   const [useTimer, setUseTimer] = useState<boolean>(true);
   const [timerDuration, setTimerDuration] = useState<number>(3);
@@ -103,7 +102,6 @@ export default function Photobooth() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [flashEffect, setFlashEffect] = useState(false);
 
-  // Per-Template Customizations Loaded from Supabase
   const [templateConfigs, setTemplateConfigs] =
     useState<Record<string, TemplateConfig>>(defaultConfigMap);
   const [, setCustomTemplateUrls] = useState<string[]>([]);
@@ -115,7 +113,6 @@ export default function Photobooth() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
 
-  // Detect whether current selected camera lens is Front vs Back camera
   const isFrontCamera = useCallback(() => {
     if (!selectedDeviceId) return true;
     const activeDevice = availableCameras.find((c) => c.deviceId === selectedDeviceId);
@@ -124,7 +121,6 @@ export default function Photobooth() {
     return !label.includes('back') && !label.includes('environment') && !label.includes('rear');
   }, [selectedDeviceId, availableCameras]);
 
-  // Generate placeholder images for modal setup preview
   useEffect(() => {
     const imgs: HTMLImageElement[] = [];
     const colors = ['#1E293B', '#334155', '#475569', '#64748B', '#94A3B8', '#CBD5E1'];
@@ -150,7 +146,6 @@ export default function Photobooth() {
     setDummyImages(imgs);
   }, []);
 
-  // Fetch Event Customizations & Parse template_configs JSON
   useEffect(() => {
     let isMounted = true;
     const fetchEventData = async () => {
@@ -195,7 +190,6 @@ export default function Photobooth() {
     };
   };
 
-  // Render Modal Live Template Preview
   useEffect(() => {
     if (!showSetupModal || !modalCanvasRef.current || dummyImages.length < 4) return;
     const canvas = modalCanvasRef.current;
@@ -280,7 +274,6 @@ export default function Photobooth() {
   const requiredPhotoCount = selectedTemplate === 5 ? 4 : 6;
   const isCameraActive = photos.length < requiredPhotoCount;
 
-  // Restart camera stream when returning to viewfinder
   useEffect(() => {
     if (isCameraActive) {
       startCamera();
@@ -294,13 +287,17 @@ export default function Photobooth() {
     };
   }, [isCameraActive, startCamera]);
 
-  // Top-weighted frame snapshot (un-mirrors back cameras automatically)
+  // Capture frame with dynamic mobile 9:16 aspect ratio support
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
 
+    const videoWidth = video.videoWidth || 1280;
+    const videoHeight = video.videoHeight || 720;
+    const isPortraitStream = videoHeight > videoWidth;
+
     const targetWidth = 1200;
-    const targetHeight = 800;
+    const targetHeight = isPortraitStream ? 1600 : 800;
     const targetAspect = targetWidth / targetHeight;
 
     const tempCanvas = document.createElement('canvas');
@@ -309,10 +306,7 @@ export default function Photobooth() {
     const ctx = tempCanvas.getContext('2d');
     if (!ctx) return null;
 
-    const videoWidth = video.videoWidth || 1280;
-    const videoHeight = video.videoHeight || 720;
     const videoAspect = videoWidth / videoHeight;
-
     let sourceX = 0,
       sourceY = 0,
       sourceWidth = videoWidth,
@@ -323,11 +317,9 @@ export default function Photobooth() {
       sourceX = (videoWidth - sourceWidth) / 2;
     } else {
       sourceHeight = videoWidth / targetAspect;
-      // Top-align framing so faces are never cut off
       sourceY = (videoHeight - sourceHeight) * 0.1;
     }
 
-    // Un-mirror back camera, only mirror selfie front camera
     if (isFrontCamera()) {
       ctx.translate(targetWidth, 0);
       ctx.scale(-1, 1);
@@ -350,7 +342,6 @@ export default function Photobooth() {
     return img;
   };
 
-  // Single Frame Capture (When Timer is OFF)
   const snapSingleManualFrame = () => {
     if (photos.length >= requiredPhotoCount) return;
 
@@ -363,7 +354,6 @@ export default function Photobooth() {
     }
   };
 
-  // Automated Burst Capture (When Timer is ON)
   const startBurstCapture = async () => {
     setShowSetupModal(false);
 
@@ -400,7 +390,6 @@ export default function Photobooth() {
     setIsCapturingSeries(false);
   };
 
-  // Promise-based Canvas Render to guarantee no missing 4th/6th frames
   useEffect(() => {
     const targetCount = selectedTemplate === 5 ? 4 : 6;
     if (photos.length < targetCount || !canvasRef.current) return;
@@ -588,7 +577,6 @@ export default function Photobooth() {
               </p>
             </div>
 
-            {/* Canvas Frame Preview Window */}
             <div className="flex flex-col items-center gap-1.5 bg-black/60 p-3 rounded-2xl border border-gray-800">
               <div className="flex items-center gap-1 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
                 <Eye className="w-3 h-3 text-red-500" /> Frame Preview
@@ -603,7 +591,6 @@ export default function Photobooth() {
               </div>
             </div>
 
-            {/* Layout Options */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-semibold text-gray-300 flex items-center gap-1.5">
                 <Layers className="w-3 h-3 text-red-500" /> Select Layout
@@ -630,7 +617,6 @@ export default function Photobooth() {
               </div>
             </div>
 
-            {/* Countdown Settings */}
             <div className="space-y-2 bg-black/40 border border-gray-800 p-3 rounded-2xl">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-gray-200 flex items-center gap-1.5">
@@ -670,7 +656,6 @@ export default function Photobooth() {
               )}
             </div>
 
-            {/* Start Button */}
             <button
               onClick={startBurstCapture}
               className="w-full py-3.5 bg-gradient-to-r from-red-600 to-red-700 active:scale-95 font-bold text-xs rounded-xl shadow-xl flex items-center justify-center gap-2 text-white border border-red-500/30"

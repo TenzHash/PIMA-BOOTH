@@ -12,7 +12,7 @@ export interface TemplateOptions {
   customOverlayImg?: HTMLImageElement | null;
 }
 
-// Top-weighted aspect-fit helper to preserve faces across all templates
+// Smart scaling helper handling both mobile (portrait) and desktop (landscape) streams
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -31,13 +31,22 @@ function drawImageCover(
   let offsetX = 0;
   let offsetY = 0;
 
-  if (imgAspect > targetAspect) {
+  // Handle tall portrait mobile video streams (contain full height to prevent cutting faces)
+  if (imgAspect < 0.8) {
+    renderH = h;
+    renderW = h * imgAspect;
+    offsetX = (w - renderW) / 2;
+
+    ctx.save();
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(x, y, w, h);
+    ctx.restore();
+  } else if (imgAspect > targetAspect) {
     renderW = h * imgAspect;
     offsetX = (w - renderW) / 2;
   } else {
     renderH = w / imgAspect;
-    // Align toward top (12% offset) so heads/faces stay fully visible
-    offsetY = (h - renderH) * 0.12;
+    offsetY = (h - renderH) * 0.1;
   }
 
   ctx.save();
@@ -46,7 +55,7 @@ function drawImageCover(
   ctx.clip();
   ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
 
-  // Subtle vignette depth gradient
+  // Subtle depth vignette
   const grad = ctx.createRadialGradient(
     x + w / 2, y + h / 2, Math.min(w, h) * 0.3,
     x + w / 2, y + h / 2, Math.max(w, h) * 0.75
@@ -71,7 +80,6 @@ function getFontFamily(style?: string): string {
   }
 }
 
-// Universal Background Gradient Generator
 function applyCanvasGradient(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -112,7 +120,6 @@ function applyCanvasGradient(
   ctx.fillRect(0, 0, width, height);
 }
 
-// Decorative Sticker Overlays
 function drawStickers(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -329,7 +336,6 @@ export function renderTemplate5({
 
   const font = getFontFamily(fontStyle);
 
-  // Balanced strip margins
   const sideMargin = 140;
   const topMargin = 90;
   const bottomSpace = 340;
@@ -372,7 +378,7 @@ export function renderTemplate5({
   drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Custom PNG Frame Overlay Renderer
+// Custom PNG Overlay Frame Renderer
 export function renderCustomPNGTemplate({
   ctx,
   images,
