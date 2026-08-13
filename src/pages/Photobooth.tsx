@@ -287,13 +287,12 @@ export default function Photobooth() {
     };
   }, [isCameraActive, startCamera]);
 
-  // Dynamic Snapshot Crop based on Template Layout (3:2 for 4-shot vs 4:3 for 6-shot)
+  // Top-aligned capture calculation to prevent cutting off heads in 6-shot grids
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
 
     const targetWidth = 1200;
-    // Template 5 uses 3:2 horizontal strip frames (800h); 6-shot templates use 4:3 grid frames (900h)
     const targetHeight = selectedTemplate === 5 ? 800 : 900;
     const targetAspect = targetWidth / targetHeight;
 
@@ -311,7 +310,8 @@ export default function Photobooth() {
       sourceX = (videoWidth - sourceWidth) / 2;
     } else {
       sourceHeight = videoWidth / targetAspect;
-      sourceY = (videoHeight - sourceHeight) / 2;
+      // Align 10% from the top so hair/faces are not cut off in 6-shot templates
+      sourceY = (videoHeight - sourceHeight) * 0.1;
     }
 
     const tempCanvas = document.createElement('canvas');
@@ -668,7 +668,6 @@ export default function Photobooth() {
 
       {photos.length < requiredPhotoCount ? (
         <main className="w-full flex-1 flex flex-col justify-center items-center gap-4 my-auto">
-          {/* Synchronized Viewfinder Box dynamically adjusting to selected template ratio */}
           <div
             className={`relative w-full ${
               selectedTemplate === 5 ? 'aspect-[3/2]' : 'aspect-[4/3]'

@@ -12,7 +12,7 @@ export interface TemplateOptions {
   customOverlayImg?: HTMLImageElement | null;
 }
 
-// Universal Aspect-Fit Cover Function
+// Top-weighted cover drawing helper to preserve faces in grid templates
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -36,7 +36,8 @@ function drawImageCover(
     offsetX = (w - renderW) / 2;
   } else {
     renderH = w / imgAspect;
-    offsetY = (h - renderH) / 2;
+    // Top-align by 10% offset so heads and faces remain fully visible
+    offsetY = (h - renderH) * 0.1;
   }
 
   ctx.save();
@@ -45,7 +46,6 @@ function drawImageCover(
   ctx.clip();
   ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
 
-  // Subtle depth vignette
   const grad = ctx.createRadialGradient(
     x + w / 2, y + h / 2, Math.min(w, h) * 0.3,
     x + w / 2, y + h / 2, Math.max(w, h) * 0.75
