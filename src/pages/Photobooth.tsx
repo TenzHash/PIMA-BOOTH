@@ -63,7 +63,8 @@ export default function Photobooth() {
   const [textColor, setTextColor] = useState('#2C3E50');
   const [fontStyle, setFontStyle] = useState('serif');
 
-  const [customTemplateUrls, setCustomTemplateUrls] = useState<string[]>([]);
+  // AFTER (Fix):
+  const [, setCustomTemplateUrls] = useState<string[]>([]);
   const [activeCustomOverlayImg, setActiveCustomOverlayImg] = useState<HTMLImageElement | null>(
     null
   );
