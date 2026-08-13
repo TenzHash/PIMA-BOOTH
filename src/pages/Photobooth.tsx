@@ -259,6 +259,7 @@ export default function Photobooth() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await videoRef.current.play();
       }
 
       await fetchAvailableCameras();
@@ -267,15 +268,22 @@ export default function Photobooth() {
     }
   }, [selectedDeviceId, fetchAvailableCameras]);
 
+  // Restart camera stream whenever returning to camera view
+  const requiredPhotoCount = selectedTemplate === 5 ? 4 : 6;
+  const isCameraActive = photos.length < requiredPhotoCount;
+
   useEffect(() => {
-    startCamera();
+    if (isCameraActive) {
+      startCamera();
+    }
+
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [startCamera]);
+  }, [isCameraActive, startCamera]);
 
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
@@ -305,7 +313,6 @@ export default function Photobooth() {
       sourceX = (videoWidth - sourceWidth) / 2;
     } else {
       sourceHeight = videoWidth / targetAspect;
-      // Capture higher up in the video frame to preserve heads
       sourceY = (videoHeight - sourceHeight) * 0.1;
     }
 
@@ -327,8 +334,6 @@ export default function Photobooth() {
     img.src = tempCanvas.toDataURL('image/jpeg', 0.95);
     return img;
   };
-
-  const requiredPhotoCount = selectedTemplate === 5 ? 4 : 6;
 
   // Single Frame Capture (When Timer is OFF)
   const snapSingleManualFrame = () => {
@@ -380,10 +385,9 @@ export default function Photobooth() {
     setIsCapturingSeries(false);
   };
 
-  // Render Final Canvas Output using Promises to prevent missing frames
+  // Promise-based Render Final Canvas Output to prevent missing frames
   useEffect(() => {
     const targetCount = selectedTemplate === 5 ? 4 : 6;
-
     if (photos.length < targetCount || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
