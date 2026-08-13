@@ -1,4 +1,4 @@
-export interface TemplateRenderOptions {
+export interface TemplateOptions {
   ctx: CanvasRenderingContext2D;
   images: HTMLImageElement[];
   width: number;
@@ -10,7 +10,7 @@ export interface TemplateRenderOptions {
   customOverlayImg?: HTMLImageElement | null;
 }
 
-// Aspect Ratio Cover Fit calculation to prevent image stretching or head clipping
+// Helper function to draw images without distortion or cutting off faces
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -19,230 +19,290 @@ function drawImageCover(
   w: number,
   h: number
 ) {
+  if (!img || !img.width || !img.height) return;
+
   const imgAspect = img.width / img.height;
   const targetAspect = w / h;
 
-  let sx = 0, sy = 0, sw = img.width, sh = img.height;
+  let renderW = w;
+  let renderH = h;
+  let offsetX = 0;
+  let offsetY = 0;
 
   if (imgAspect > targetAspect) {
-    sw = img.height * targetAspect;
-    sx = (img.width - sw) / 2;
+    renderW = h * imgAspect;
+    offsetX = (w - renderW) / 2;
   } else {
-    sh = img.width / targetAspect;
-    sy = (img.height - sh) / 2;
+    renderH = w / imgAspect;
+    offsetY = (h - renderH) / 2;
   }
 
-  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
+  ctx.restore();
 }
 
-// 1. Polaroid Vintage Collage Template with Editable Text
+// Helper for text font styling
+function getFontFamily(style?: string): string {
+  switch (style) {
+    case 'sans-serif':
+      return 'Inter, system-ui, Arial, sans-serif';
+    case 'monospace':
+      return '"Courier New", Courier, monospace';
+    case 'serif':
+    default:
+      return 'Georgia, "Times New Roman", serif';
+  }
+}
+
+// Template 1: Dark Mode Grid
+export function renderTemplate1({
+  ctx,
+  images,
+  width,
+  height,
+  eventName = 'EVENT NAME',
+  subtitleText = 'Official Event Memory',
+  textColor = '#FFFFFF',
+  fontStyle = 'sans-serif',
+}: TemplateOptions) {
+  ctx.fillStyle = '#0F172A';
+  ctx.fillRect(0, 0, width, height);
+
+  const font = getFontFamily(fontStyle);
+  const margin = 40;
+  const topHeader = 120;
+  const footerHeight = 180;
+  const gridW = width - margin * 2;
+  const gridH = height - topHeader - footerHeight;
+
+  const gap = 20;
+  const cols = 2;
+  const rows = 3;
+  const cellW = (gridW - gap * (cols - 1)) / cols;
+  const cellH = (gridH - gap * (rows - 1)) / rows;
+
+  ctx.fillStyle = textColor;
+  ctx.textAlign = 'center';
+  ctx.font = `bold 42px ${font}`;
+  ctx.fillText(eventName.toUpperCase(), width / 2, 75);
+
+  images.slice(0, 6).forEach((img, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = margin + col * (cellW + gap);
+    const y = topHeader + row * (cellH + gap);
+
+    ctx.fillStyle = '#1E293B';
+    ctx.fillRect(x - 4, y - 4, cellW + 8, cellH + 8);
+    drawImageCover(ctx, img, x, y, cellW, cellH);
+  });
+
+  ctx.fillStyle = textColor;
+  ctx.font = `18px ${font}`;
+  ctx.fillText(subtitleText, width / 2, height - 70);
+}
+
+// Template 2: Sunset / Vibrant Theme
+export function renderTemplate2({
+  ctx,
+  images,
+  width,
+  height,
+  eventName = 'EVENT NAME',
+  subtitleText = 'Official Event Memory',
+  textColor = '#2C3E50',
+  fontStyle = 'serif',
+}: TemplateOptions) {
+  const grad = ctx.createLinearGradient(0, 0, 0, height);
+  grad.addColorStop(0, '#FFF5EB');
+  grad.addColorStop(1, '#FED7AA');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+
+  const font = getFontFamily(fontStyle);
+  const margin = 45;
+  const startY = 60;
+  const availableH = height - startY - 180;
+
+  const cols = 2;
+  const rows = 3;
+  const gap = 24;
+  const cellW = (width - margin * 2 - gap) / cols;
+  const cellH = (availableH - gap * (rows - 1)) / rows;
+
+  images.slice(0, 6).forEach((img, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = margin + col * (cellW + gap);
+    const y = startY + row * (cellH + gap);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 6;
+    ctx.fillRect(x - 8, y - 8, cellW + 16, cellH + 16);
+    ctx.shadowColor = 'transparent';
+
+    drawImageCover(ctx, img, x, y, cellW, cellH);
+  });
+
+  ctx.fillStyle = textColor;
+  ctx.textAlign = 'center';
+  ctx.font = `bold 38px ${font}`;
+  ctx.fillText(eventName, width / 2, height - 100);
+
+  ctx.font = `italic 20px ${font}`;
+  ctx.fillText(subtitleText, width / 2, height - 60);
+}
+
+// Template 3: Polaroid Classic Vertical Strip
 export function renderTemplate3({
   ctx,
   images,
   width,
   height,
-  eventName = 'PIMA Albay',
+  eventName = 'PIMA ALBAY',
   subtitleText = 'Official Event Memory',
   textColor = '#2C3E50',
   fontStyle = 'serif',
-}: TemplateRenderOptions) {
-  // Canvas Background
-  ctx.fillStyle = '#F4F1EA';
+}: TemplateOptions) {
+  ctx.fillStyle = '#F8FAFC';
   ctx.fillRect(0, 0, width, height);
 
-  // Header Title
-  ctx.fillStyle = textColor;
-  ctx.font = `bold 52px ${fontStyle}`;
-  ctx.textAlign = 'center';
-  ctx.fillText(eventName, width / 2, 95);
+  const font = getFontFamily(fontStyle);
+  const sideMargin = 60;
+  const topMargin = 60;
+  const bottomSpace = 220;
 
-  const photoW = 390;
-  const photoH = 520;
-  const framePad = 18;
-  const frameBottomPad = 65;
+  const count = Math.min(images.length, 6);
+  const cols = count > 4 ? 2 : 1;
+  const rows = count > 4 ? 3 : 4;
 
-  const coords = [
-    { x: 120, y: 140, angle: -0.03 },
-    { x: 670, y: 160, angle: 0.04 },
-    { x: 100, y: 680, angle: 0.02 },
-    { x: 690, y: 660, angle: -0.04 },
-    { x: 130, y: 1210, angle: -0.02 },
-    { x: 660, y: 1230, angle: 0.03 },
-  ];
+  const availableW = width - sideMargin * 2;
+  const availableH = height - topMargin - bottomSpace;
+  const gap = 20;
 
-  images.slice(0, 6).forEach((img, idx) => {
-    const { x, y, angle } = coords[idx];
+  const cellW = cols === 2 ? (availableW - gap) / 2 : availableW;
+  const cellH = (availableH - gap * (rows - 1)) / rows;
 
-    ctx.save();
-    ctx.translate(x + photoW / 2, y + photoH / 2);
-    ctx.rotate(angle);
-
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
-    ctx.shadowBlur = 18;
+  images.slice(0, cols * rows).forEach((img, i) => {
+    const c = i % cols;
+    const r = Math.floor(i / cols);
+    const x = sideMargin + c * (cellW + gap);
+    const y = topMargin + r * (cellH + gap);
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(
-      -photoW / 2 - framePad,
-      -photoH / 2 - framePad,
-      photoW + framePad * 2,
-      photoH + framePad + frameBottomPad
-    );
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
+    ctx.shadowBlur = 10;
+    ctx.fillRect(x - 6, y - 6, cellW + 12, cellH + 12);
+    ctx.shadowColor = 'transparent';
 
-    ctx.shadowBlur = 0;
-    drawImageCover(ctx, img, -photoW / 2, -photoH / 2, photoW, photoH);
-    ctx.restore();
+    drawImageCover(ctx, img, x, y, cellW, cellH);
   });
 
-  // Footer Subtitle
   ctx.fillStyle = textColor;
-  ctx.font = `italic 28px ${fontStyle}`;
-  ctx.fillText(subtitleText, width / 2, height - 35);
+  ctx.textAlign = 'center';
+  ctx.font = `bold 40px ${font}`;
+  ctx.fillText(eventName, width / 2, height - 120);
+
+  ctx.font = `18px ${font}`;
+  ctx.fillText(subtitleText, width / 2, height - 75);
 }
 
-// 2. Dedicated Custom PNG Overlay Template with Editable Text
+// NEW Template 5: 4-Frame Vertical "lookUp" Wide Photo Strip Layout
+export function renderTemplate5({
+  ctx,
+  images,
+  width,
+  height,
+  eventName = 'lookUp',
+  subtitleText = 'PHOTOBOOTH',
+  textColor = '#000000',
+  fontStyle = 'sans-serif',
+}: TemplateOptions) {
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, height);
+
+  const font = getFontFamily(fontStyle);
+  const sideMargin = 70;
+  const topMargin = 50;
+  const bottomSpace = 200;
+  const gap = 22;
+
+  const availableW = width - sideMargin * 2;
+  const availableH = height - topMargin - bottomSpace;
+  const frameH = (availableH - gap * 3) / 4;
+
+  // Render 4 stacked landscape photo frames
+  images.slice(0, 4).forEach((img, i) => {
+    const y = topMargin + i * (frameH + gap);
+
+    // Black frame outline
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(sideMargin, y, availableW, frameH);
+
+    // Image fit without distortion
+    drawImageCover(ctx, img, sideMargin, y, availableW, frameH);
+
+    // Side indicators: Left frame numbers (▸ 1, ▸ 2...)
+    ctx.fillStyle = '#000000';
+    ctx.font = `bold 22px ${font}`;
+    ctx.textAlign = 'right';
+    ctx.fillText(`▸ ${i + 1}`, sideMargin - 15, y + frameH / 2 + 8);
+
+    // Right side label ("up ▲")
+    ctx.font = `bold 18px ${font}`;
+    ctx.textAlign = 'left';
+    ctx.fillText('up ▲', sideMargin + availableW + 15, y + frameH / 2 + 6);
+  });
+
+  // Bottom Logo / Typography Branding
+  const footerY = height - 110;
+  ctx.fillStyle = textColor;
+  ctx.textAlign = 'center';
+
+  // Stylized "lookUp" title
+  ctx.font = `italic bold 56px ${font}`;
+  ctx.fillText(eventName, width / 2, footerY);
+
+  // Subtitle / "PHOTOBOOTH" label
+  ctx.font = `bold 16px ${font}`;
+  ctx.fillText(subtitleText.toUpperCase(), width / 2, footerY + 36);
+}
+
+// Custom PNG Overlay Template Loader
 export function renderCustomPNGTemplate({
   ctx,
   images,
   width,
   height,
-  eventName = 'PIMA Albay',
-  subtitleText = 'Official Event Memory',
-  textColor = '#2C3E50',
-  fontStyle = 'serif',
   customOverlayImg,
-}: TemplateRenderOptions) {
-  // Draw Uploaded Custom PNG Background First
+}: TemplateOptions) {
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, height);
+
+  const sideMargin = 50;
+  const topMargin = 50;
+  const gap = 16;
+  const rows = 3;
+  const cols = 2;
+  const cellW = (width - sideMargin * 2 - gap) / cols;
+  const cellH = (height - topMargin - 200 - gap * (rows - 1)) / rows;
+
+  images.slice(0, 6).forEach((img, i) => {
+    const c = i % cols;
+    const r = Math.floor(i / cols);
+    const x = sideMargin + c * (cellW + gap);
+    const y = topMargin + r * (cellH + gap);
+    drawImageCover(ctx, img, x, y, cellW, cellH);
+  });
+
   if (customOverlayImg) {
     ctx.drawImage(customOverlayImg, 0, 0, width, height);
-  } else {
-    ctx.fillStyle = '#F4F1EA';
-    ctx.fillRect(0, 0, width, height);
   }
-
-  // Header Title
-  ctx.fillStyle = textColor;
-  ctx.font = `bold 52px ${fontStyle}`;
-  ctx.textAlign = 'center';
-  ctx.fillText(eventName, width / 2, 95);
-
-  const photoW = 390;
-  const photoH = 520;
-  const framePad = 18;
-  const frameBottomPad = 65;
-
-  const coords = [
-    { x: 120, y: 140, angle: -0.03 },
-    { x: 670, y: 160, angle: 0.04 },
-    { x: 100, y: 680, angle: 0.02 },
-    { x: 690, y: 660, angle: -0.04 },
-    { x: 130, y: 1210, angle: -0.02 },
-    { x: 660, y: 1230, angle: 0.03 },
-  ];
-
-  images.slice(0, 6).forEach((img, idx) => {
-    const { x, y, angle } = coords[idx];
-
-    ctx.save();
-    ctx.translate(x + photoW / 2, y + photoH / 2);
-    ctx.rotate(angle);
-
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
-    ctx.shadowBlur = 18;
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(
-      -photoW / 2 - framePad,
-      -photoH / 2 - framePad,
-      photoW + framePad * 2,
-      photoH + framePad + frameBottomPad
-    );
-
-    ctx.shadowBlur = 0;
-    drawImageCover(ctx, img, -photoW / 2, -photoH / 2, photoW, photoH);
-    ctx.restore();
-  });
-
-  // Footer Subtitle
-  ctx.fillStyle = textColor;
-  ctx.font = `italic 28px ${fontStyle}`;
-  ctx.fillText(subtitleText, width / 2, height - 35);
-}
-
-// 3. Classic Dark Crimson Template
-export function renderTemplate1(opts: TemplateRenderOptions) {
-  const { ctx, images, width, height, eventName = 'PIMA ALBAY', subtitleText = 'Legazpi City', textColor = '#FFFFFF', fontStyle = 'sans-serif' } = opts;
-  ctx.fillStyle = '#121212';
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = '#C0392B';
-  ctx.fillRect(0, 0, width, 150);
-
-  ctx.fillStyle = textColor;
-  ctx.font = `bold 44px ${fontStyle}`;
-  ctx.textAlign = 'center';
-  ctx.fillText(eventName.toUpperCase(), width / 2, 90);
-
-  const padding = 40;
-  const topOffset = 190;
-  const cols = 2;
-  const rows = 3;
-  const frameW = (width - padding * 3) / cols;
-  const frameH = (height - topOffset - 200 - padding * 3) / rows;
-
-  images.slice(0, 6).forEach((img, idx) => {
-    const col = idx % cols;
-    const row = Math.floor(idx / cols);
-    const x = padding + col * (frameW + padding);
-    const y = topOffset + row * (frameH + padding);
-
-    ctx.fillStyle = '#222222';
-    ctx.fillRect(x - 8, y - 8, frameW + 16, frameH + 16);
-    drawImageCover(ctx, img, x, y, frameW, frameH);
-  });
-
-  ctx.fillStyle = textColor;
-  ctx.font = `24px ${fontStyle}`;
-  ctx.fillText(subtitleText, width / 2, height - 30);
-}
-
-// 4. Bicol Sunset Photocard Template
-export function renderTemplate2(opts: TemplateRenderOptions) {
-  const { ctx, images, width, height, eventName = 'PIMA ALBAY', subtitleText = 'OFFICIAL EVENT MEMORY', textColor = '#1A1A1A', fontStyle = 'sans-serif' } = opts;
-  const grad = ctx.createLinearGradient(0, 0, 0, height);
-  grad.addColorStop(0, '#FF512F');
-  grad.addColorStop(1, '#DD2476');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(30, 30, width - 60, height - 60);
-
-  const padding = 50;
-  const topOffset = 160;
-  const cols = 2;
-  const rows = 3;
-  const frameW = (width - padding * 3) / cols;
-  const frameH = (height - topOffset - 220 - padding * 3) / rows;
-
-  images.slice(0, 6).forEach((img, idx) => {
-    const col = idx % cols;
-    const row = Math.floor(idx / cols);
-    const x = padding + col * (frameW + padding);
-    const y = topOffset + row * (frameH + padding);
-
-    ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
-    ctx.shadowBlur = 15;
-    drawImageCover(ctx, img, x, y, frameW, frameH);
-    ctx.restore();
-  });
-
-  ctx.fillStyle = textColor;
-  ctx.font = `900 48px ${fontStyle}`;
-  ctx.textAlign = 'center';
-  ctx.fillText(eventName.toUpperCase(), width / 2, height - 120);
-
-  ctx.fillStyle = '#777777';
-  ctx.font = `26px ${fontStyle}`;
-  ctx.fillText(subtitleText, width / 2, height - 75);
 }

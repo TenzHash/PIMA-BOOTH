@@ -12,11 +12,13 @@ import {
   RotateCcw,
   Timer,
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { supabase } from '../lib/supabase';
 import {
   renderTemplate1,
   renderTemplate2,
   renderTemplate3,
+  renderTemplate5,
   renderCustomPNGTemplate,
 } from '../utils/templates';
 
@@ -29,11 +31,9 @@ export default function Photobooth() {
   const [searchParams] = useSearchParams();
 
   // Normalize raw search param slug to match database format perfectly
-  // 1. Get raw search param and decode URL characters like %20
   const rawParam = searchParams.get('event') || 'pima-albay';
   const decodedSlug = decodeURIComponent(rawParam);
 
-  // 2. Sanitize cleanly into a uniform hypenated slug
   const eventSlug = decodedSlug
     .trim()
     .toLowerCase()
@@ -62,21 +62,22 @@ export default function Photobooth() {
   const [activeCustomOverlayImg, setActiveCustomOverlayImg] = useState<HTMLImageElement | null>(
     null
   );
-  const [selectedTemplate, setSelectedTemplate] = useState<number>(3); // Default to Polaroid
+  const [selectedTemplate, setSelectedTemplate] = useState<number>(5); // Default to LookUp 4-Frame
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
 
   // Fetch Event Customizations
   useEffect(() => {
+    let isMounted = true;
     const fetchEventData = async () => {
       const { data } = await supabase
         .from('events')
         .select('*')
         .eq('event_slug', eventSlug)
-        .single();
+        .maybeSingle();
 
-      if (data) {
+      if (isMounted && data) {
         if (data.event_name) setEventName(data.title_text || data.event_name);
         if (data.subtitle_text) setSubtitleText(data.subtitle_text);
         if (data.text_color) setTextColor(data.text_color);
@@ -95,6 +96,10 @@ export default function Photobooth() {
       }
     };
     fetchEventData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [eventSlug]);
 
   const loadCustomOverlay = (url: string) => {
@@ -172,7 +177,8 @@ export default function Photobooth() {
     if (!videoRef.current) return null;
     const video = videoRef.current;
 
-    const targetWidth = 600;
+    // Use 3:2 aspect ratio (1200x800) so photos fit nicely into landscape template frames
+    const targetWidth = 1200;
     const targetHeight = 800;
     const targetAspect = targetWidth / targetHeight;
 
@@ -182,8 +188,8 @@ export default function Photobooth() {
     const ctx = tempCanvas.getContext('2d');
     if (!ctx) return null;
 
-    const videoWidth = video.videoWidth || 640;
-    const videoHeight = video.videoHeight || 480;
+    const videoWidth = video.videoWidth || 1280;
+    const videoHeight = video.videoHeight || 720;
     const videoAspect = videoWidth / videoHeight;
 
     let sourceX = 0,
@@ -214,9 +220,11 @@ export default function Photobooth() {
     );
 
     const img = new Image();
-    img.src = tempCanvas.toDataURL('image/jpeg', 0.9);
+    img.src = tempCanvas.toDataURL('image/jpeg', 0.95);
     return img;
   };
+
+  const requiredPhotoCount = selectedTemplate === 5 ? 4 : 6;
 
   const startBurstCapture = async () => {
     if (isCapturingSeries) return;
@@ -226,7 +234,7 @@ export default function Photobooth() {
 
     const captured: HTMLImageElement[] = [];
 
-    for (let i = 1; i <= 6; i++) {
+    for (let i = 1; i <= requiredPhotoCount; i++) {
       for (let cd = 3; cd > 0; cd--) {
         setCountdown(cd);
         await new Promise((res) => setTimeout(res, 1000));
@@ -249,7 +257,7 @@ export default function Photobooth() {
   };
 
   useEffect(() => {
-    if (photos.length === 6 && canvasRef.current) {
+    if (photos.length >= requiredPhotoCount && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
@@ -258,7 +266,7 @@ export default function Photobooth() {
         ctx,
         images: photos,
         width: 1200,
-        height: 1800,
+        height: 2400,
         eventName,
         subtitleText,
         textColor,
@@ -266,6 +274,7 @@ export default function Photobooth() {
         customOverlayImg: activeCustomOverlayImg,
       };
 
+      if (selectedTemplate === 5) renderTemplate5(opts);
       if (selectedTemplate === 1) renderTemplate1(opts);
       if (selectedTemplate === 2) renderTemplate2(opts);
       if (selectedTemplate === 3) renderTemplate3(opts);
@@ -279,19 +288,18 @@ export default function Photobooth() {
     textColor,
     fontStyle,
     activeCustomOverlayImg,
+    requiredPhotoCount,
   ]);
 
   const handleSaveAndUpload = async () => {
-    if (!canvasRef.current || photos.length < 6) return;
+    if (!canvasRef.current || photos.length < requiredPhotoCount) return;
     setIsUploading(true);
 
-    // 1. Sanitize slug strictly
     const cleanSlug = eventSlug
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-');
 
-    // 2. GUARANTEE PARENT ROW EXISTS BEFORE UPLOAD
     const { data: eventExists } = await supabase
       .from('events')
       .select('event_slug')
@@ -299,7 +307,6 @@ export default function Photobooth() {
       .maybeSingle();
 
     if (!eventExists) {
-      // Force-create parent event if missing
       const defaultName = cleanSlug
         .split('-')
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -327,7 +334,6 @@ export default function Photobooth() {
       }
     }
 
-    // 3. Convert Canvas & Upload Photo
     canvasRef.current.toBlob(
       async (blob) => {
         if (!blob) {
@@ -337,7 +343,6 @@ export default function Photobooth() {
 
         const filePath = `${cleanSlug}/${Date.now()}_photobooth.jpg`;
 
-        // Upload Storage Blob
         const { error: uploadErr } = await supabase.storage
           .from('event-photos')
           .upload(filePath, blob, {
@@ -355,7 +360,6 @@ export default function Photobooth() {
         const { data: publicData } = supabase.storage.from('event-photos').getPublicUrl(filePath);
         const publicUrl = publicData.publicUrl;
 
-        // 4. Insert Photo Record (Foreign Key Guaranteed to Succeed)
         const { error: dbErr } = await supabase.from('event_photos').insert([
           {
             event_slug: cleanSlug,
@@ -370,6 +374,11 @@ export default function Photobooth() {
           alert(`Failed to record photo in database: ${dbErr.message}`);
         } else {
           setUploadedUrl(publicUrl);
+          confetti({
+            particleCount: 80,
+            spread: 60,
+            origin: { y: 0.7 },
+          });
         }
 
         setIsUploading(false);
@@ -389,7 +398,7 @@ export default function Photobooth() {
           </h1>
         </div>
 
-        {availableCameras.length > 0 && photos.length < 6 && (
+        {availableCameras.length > 0 && photos.length < requiredPhotoCount && (
           <div className="relative">
             <select
               value={selectedDeviceId}
@@ -408,7 +417,7 @@ export default function Photobooth() {
         )}
       </header>
 
-      {photos.length < 6 ? (
+      {photos.length < requiredPhotoCount ? (
         <main className="w-full flex-1 flex flex-col justify-center items-center gap-4 my-auto">
           <div className="relative w-full aspect-[3/4] max-w-[320px] bg-black rounded-3xl overflow-hidden border-2 border-gray-800/80 shadow-2xl flex items-center justify-center">
             {cameraError ? (
@@ -427,7 +436,7 @@ export default function Photobooth() {
             )}
 
             <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold border border-white/10 text-white shadow-lg">
-              {photos.length} / 6 Shots
+              {photos.length} / {requiredPhotoCount} Shots
             </div>
 
             {countdown !== null && (
@@ -451,7 +460,7 @@ export default function Photobooth() {
               <Camera className="w-5 h-5" />
               {isCapturingSeries
                 ? `Taking Shot ${photos.length + 1}...`
-                : 'Snap 6 Photobooth Shots'}
+                : `Snap ${requiredPhotoCount} Photobooth Shots`}
             </button>
           </div>
         </main>
@@ -464,10 +473,11 @@ export default function Photobooth() {
             <p className="text-[11px] text-gray-400">Select a frame style</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5 w-full">
+          <div className="grid grid-cols-4 gap-1.5 w-full">
             {[
+              { id: 5, name: 'LookUp' },
               { id: 3, name: 'Polaroid' },
-              { id: 1, name: 'Classic Dark' },
+              { id: 1, name: 'Classic' },
               { id: 2, name: 'Sunset' },
             ].map((t) => (
               <button
@@ -519,7 +529,7 @@ export default function Photobooth() {
             <canvas
               ref={canvasRef}
               width={1200}
-              height={1800}
+              height={2400}
               className="w-full h-auto rounded-xl"
             />
           </div>

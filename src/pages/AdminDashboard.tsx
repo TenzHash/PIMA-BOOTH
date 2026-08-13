@@ -22,6 +22,7 @@ import {
   renderTemplate1,
   renderTemplate2,
   renderTemplate3,
+  renderTemplate5,
   renderCustomPNGTemplate,
 } from '../utils/templates';
 
@@ -52,7 +53,7 @@ export default function AdminDashboard() {
   const [editSubtitle, setEditSubtitle] = useState('');
   const [editColor, setEditColor] = useState('#2C3E50');
   const [editFont, setEditFont] = useState('serif');
-  const [previewTemplateId, setPreviewTemplateId] = useState<number>(3);
+  const [previewTemplateId, setPreviewTemplateId] = useState<number>(5);
   const [savingText, setSavingText] = useState(false);
 
   // Dedicated Multiple Templates State
@@ -65,23 +66,23 @@ export default function AdminDashboard() {
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const [dummyImages, setDummyImages] = useState<HTMLImageElement[]>([]);
 
-  // Generate 6 dummy images for preview
+  // Generate dummy images for live preview
   useEffect(() => {
     const imgs: HTMLImageElement[] = [];
     const colors = ['#2C3E50', '#8E44AD', '#2980B9', '#16A085', '#D35400', '#C0392B'];
 
-    colors.forEach((color) => {
+    colors.forEach((color, i) => {
       const c = document.createElement('canvas');
-      c.width = 600;
+      c.width = 1200;
       c.height = 800;
       const ctx = c.getContext('2d');
       if (ctx) {
         ctx.fillStyle = color;
-        ctx.fillRect(0, 0, 600, 800);
+        ctx.fillRect(0, 0, 1200, 800);
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 36px sans-serif';
+        ctx.font = 'bold 48px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Sample Shot', 300, 400);
+        ctx.fillText(`Sample Frame ${i + 1}`, 600, 400);
       }
       const img = new Image();
       img.src = c.toDataURL();
@@ -104,7 +105,7 @@ export default function AdminDashboard() {
       img.onerror = () => setLoadedCustomOverlay(null);
     } else {
       setLoadedCustomOverlay(null);
-      if (previewTemplateId === 4) setPreviewTemplateId(3);
+      if (previewTemplateId === 4) setPreviewTemplateId(5);
     }
   }, [selectedCustomTemplateUrl]);
 
@@ -170,7 +171,7 @@ export default function AdminDashboard() {
   }, [selectedEvent, fetchPhotosForEvent]);
 
   const renderLivePreview = useCallback(() => {
-    if (!previewCanvasRef.current || dummyImages.length < 6) return;
+    if (!previewCanvasRef.current || dummyImages.length < 4) return;
     const canvas = previewCanvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -179,14 +180,15 @@ export default function AdminDashboard() {
       ctx,
       images: dummyImages,
       width: 1200,
-      height: 1800,
-      eventName: editTitle || 'Event Title',
-      subtitleText: editSubtitle || 'Subtitle text...',
+      height: 2400,
+      eventName: editTitle || 'lookUp',
+      subtitleText: editSubtitle || 'PHOTOBOOTH',
       textColor: editColor,
       fontStyle: editFont,
       customOverlayImg: loadedCustomOverlay,
     };
 
+    if (previewTemplateId === 5) renderTemplate5(opts);
     if (previewTemplateId === 1) renderTemplate1(opts);
     if (previewTemplateId === 2) renderTemplate2(opts);
     if (previewTemplateId === 3) renderTemplate3(opts);
@@ -403,40 +405,38 @@ export default function AdminDashboard() {
     setSavingText(false);
   };
 
-const handleDeleteEvent = async (eventId: string, eventNameStr: string) => {
-  if (!window.confirm(`Are you sure you want to delete "${eventNameStr}"? This will also remove all associated photos.`)) {
-    return;
-  }
-
-  // 1. Delete from Supabase Database
-  const { error } = await supabase
-    .from('events')
-    .delete()
-    .eq('id', eventId);
-
-  if (error) {
-    alert(`Failed to delete event from database: ${error.message}`);
-    return;
-  }
-
-  // 2. Update local state only after DB deletion succeeds
-  setEvents((prevEvents) => {
-    const updatedList = prevEvents.filter((ev) => ev.id !== eventId);
-    
-    // If deleted event was currently selected, select the first available or clear
-    if (selectedEvent?.id === eventId) {
-      if (updatedList.length > 0) {
-        selectEvent(updatedList[0]);
-      } else {
-        setSelectedEvent(null);
-        setEventPhotos([]);
-      }
+  const handleDeleteEvent = async (eventId: string, eventNameStr: string) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete "${eventNameStr}"? This will also remove all associated photos.`
+      )
+    ) {
+      return;
     }
-    return updatedList;
-  });
 
-  alert(`Event "${eventNameStr}" successfully deleted.`);
-};
+    const { error } = await supabase.from('events').delete().eq('id', eventId);
+
+    if (error) {
+      alert(`Failed to delete event from database: ${error.message}`);
+      return;
+    }
+
+    setEvents((prevEvents) => {
+      const updatedList = prevEvents.filter((ev) => ev.id !== eventId);
+
+      if (selectedEvent?.id === eventId) {
+        if (updatedList.length > 0) {
+          selectEvent(updatedList[0]);
+        } else {
+          setSelectedEvent(null);
+          setEventPhotos([]);
+        }
+      }
+      return updatedList;
+    });
+
+    alert(`Event "${eventNameStr}" successfully deleted.`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 md:p-8 max-w-7xl mx-auto antialiased">
@@ -545,7 +545,7 @@ const handleDeleteEvent = async (eventId: string, eventNameStr: string) => {
                   <label className="flex-1 bg-black border border-dashed border-gray-800 hover:border-red-500 rounded-xl px-3.5 py-3 text-xs text-gray-400 flex items-center justify-center gap-2 cursor-pointer transition">
                     <ImageIcon className="w-4 h-4 text-red-500" />
                     <span className="truncate">
-                      {templateFile ? templateFile.name : 'Add New 1200x1800 PNG Frame'}
+                      {templateFile ? templateFile.name : 'Add New 1200x2400 PNG Frame'}
                     </span>
                     <input
                       type="file"
@@ -574,7 +574,7 @@ const handleDeleteEvent = async (eventId: string, eventNameStr: string) => {
                         <div
                           key={`${url}-${index}`}
                           onClick={() => setSelectedCustomTemplateUrl(url)}
-                          className={`relative group rounded-xl overflow-hidden border aspect-[2/3] bg-black cursor-pointer transition ${
+                          className={`relative group rounded-xl overflow-hidden border aspect-[1/2] bg-black cursor-pointer transition ${
                             selectedCustomTemplateUrl === url
                               ? 'border-red-500 ring-2 ring-red-500/50'
                               : 'border-gray-800 hover:border-gray-600'
@@ -687,6 +687,7 @@ const handleDeleteEvent = async (eventId: string, eventNameStr: string) => {
                       </label>
                       <div className="grid grid-cols-2 gap-1.5">
                         {[
+                          { id: 5, name: 'LookUp 4-Frame' },
                           { id: 3, name: 'Polaroid' },
                           { id: 1, name: 'Classic Dark' },
                           { id: 2, name: 'Sunset' },
@@ -724,11 +725,11 @@ const handleDeleteEvent = async (eventId: string, eventNameStr: string) => {
                       <span>Live Template Text Preview</span>
                     </div>
 
-                    <div className="w-full max-w-[260px] aspect-[2/3] rounded-xl overflow-hidden border border-gray-800 bg-gray-950 flex items-center justify-center">
+                    <div className="w-full max-w-[260px] aspect-[1/2] rounded-xl overflow-hidden border border-gray-800 bg-gray-950 flex items-center justify-center">
                       <canvas
                         ref={previewCanvasRef}
                         width={1200}
-                        height={1800}
+                        height={2400}
                         className="w-full h-auto rounded-lg shadow-2xl"
                       />
                     </div>
@@ -796,7 +797,7 @@ const handleDeleteEvent = async (eventId: string, eventNameStr: string) => {
                     {eventPhotos.map((photo) => (
                       <div
                         key={photo.id}
-                        className="group relative bg-black rounded-xl overflow-hidden border border-gray-800 aspect-[2/3] shadow-md"
+                        className="group relative bg-black rounded-xl overflow-hidden border border-gray-800 aspect-[1/2] shadow-md"
                       >
                         <img
                           src={photo.public_url}
@@ -805,7 +806,7 @@ const handleDeleteEvent = async (eventId: string, eventNameStr: string) => {
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src =
-                              'https://via.placeholder.com/600x900/121212/ffffff?text=Image+Load+Error';
+                              'https://via.placeholder.com/600x1200/121212/ffffff?text=Image+Load+Error';
                           }}
                         />
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center p-2">
