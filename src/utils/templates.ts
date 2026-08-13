@@ -214,6 +214,7 @@ export function renderTemplate3({
 }
 
 // NEW Template 5: 4-Frame Vertical "lookUp" Wide Photo Strip Layout
+// Template 5: 4-Frame Vertical "lookUp" Photo Strip Layout
 export function renderTemplate5({
   ctx,
   images,
@@ -228,51 +229,52 @@ export function renderTemplate5({
   ctx.fillRect(0, 0, width, height);
 
   const font = getFontFamily(fontStyle);
-  const sideMargin = 70;
-  const topMargin = 50;
-  const bottomSpace = 200;
-  const gap = 22;
+  const sideMargin = 80;
+  const topMargin = 60;
+  const bottomSpace = 280; // Reserve space for footer text
+  const gap = 24;
 
   const availableW = width - sideMargin * 2;
   const availableH = height - topMargin - bottomSpace;
   const frameH = (availableH - gap * 3) / 4;
 
-  // Render 4 stacked landscape photo frames
+  // 1. Render 4 stacked photo frames
   images.slice(0, 4).forEach((img, i) => {
     const y = topMargin + i * (frameH + gap);
 
-    // Black frame outline
+    // Frame border
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 4;
     ctx.strokeRect(sideMargin, y, availableW, frameH);
 
-    // Image fit without distortion
+    // Image aspect-fit render
     drawImageCover(ctx, img, sideMargin, y, availableW, frameH);
 
-    // Side indicators: Left frame numbers (▸ 1, ▸ 2...)
+    // Left indicator ("▸ 1", "▸ 2"...)
     ctx.fillStyle = '#000000';
-    ctx.font = `bold 22px ${font}`;
+    ctx.font = `bold 28px ${font}`;
     ctx.textAlign = 'right';
-    ctx.fillText(`▸ ${i + 1}`, sideMargin - 15, y + frameH / 2 + 8);
+    ctx.fillText(`▸ ${i + 1}`, sideMargin - 18, y + frameH / 2 + 10);
 
-    // Right side label ("up ▲")
-    ctx.font = `bold 18px ${font}`;
+    // Right indicator ("up ▲")
+    ctx.font = `bold 22px ${font}`;
     ctx.textAlign = 'left';
-    ctx.fillText('up ▲', sideMargin + availableW + 15, y + frameH / 2 + 6);
+    ctx.fillText('up ▲', sideMargin + availableW + 18, y + frameH / 2 + 8);
   });
 
-  // Bottom Logo / Typography Branding
-  const footerY = height - 110;
-  ctx.fillStyle = textColor;
+  // 2. Render Bottom Branding Text
+  const footerCenterY = height - 140;
+
+  ctx.fillStyle = textColor || '#000000';
   ctx.textAlign = 'center';
 
-  // Stylized "lookUp" title
-  ctx.font = `italic bold 56px ${font}`;
-  ctx.fillText(eventName, width / 2, footerY);
+  // Title Text
+  ctx.font = `italic bold 64px ${font}`;
+  ctx.fillText(eventName, width / 2, footerCenterY);
 
-  // Subtitle / "PHOTOBOOTH" label
-  ctx.font = `bold 16px ${font}`;
-  ctx.fillText(subtitleText.toUpperCase(), width / 2, footerY + 36);
+  // Subtitle Text
+  ctx.font = `bold 22px ${font}`;
+  ctx.fillText(subtitleText.toUpperCase(), width / 2, footerCenterY + 45);
 }
 
 // Custom PNG Overlay Template Loader
