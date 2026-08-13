@@ -73,8 +73,8 @@ const defaultConfigMap: Record<string, TemplateConfig> = {
     sticker: 'none',
   },
   '5': {
-    title: 'lookUp',
-    subtitle: 'PHOTOBOOTH',
+    title: 'PIMA',
+    subtitle: 'WELCOME PARTY 2026',
     color: '#000000',
     font: 'sans-serif',
     gradient: 'monochrome',
