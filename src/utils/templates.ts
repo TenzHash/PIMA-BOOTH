@@ -312,6 +312,7 @@ export function renderTemplate3({
 }
 
 // Template 5: 4-Frame "lookUp" Vertical Layout
+// Template 5: Authentic Narrow 4-Frame "lookUp" Photo Strip
 export function renderTemplate5({
   ctx,
   images,
@@ -324,48 +325,59 @@ export function renderTemplate5({
   gradientTheme = 'monochrome',
   stickerStyle = 'none',
 }: TemplateOptions) {
+  // Render background gradient
   applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
-  const sideMargin = 80;
-  const topMargin = 60;
-  const bottomSpace = 280;
-  const gap = 24;
+
+  // Strip margins optimized for 1200x2400 high-res export
+  const sideMargin = 120; // Increased side margins to make frames visually narrower/authentic
+  const topMargin = 80;
+  const bottomSpace = 320; // Generous bottom area for logo & subtext
+  const gap = 30;
 
   const availableW = width - sideMargin * 2;
   const availableH = height - topMargin - bottomSpace;
   const frameH = (availableH - gap * 3) / 4;
 
+  // 1. Draw 4 Photo Frames
   images.slice(0, 4).forEach((img, i) => {
     const y = topMargin + i * (frameH + gap);
 
+    // Outer frame border
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 5;
     ctx.strokeRect(sideMargin, y, availableW, frameH);
 
+    // Aspect-fit image drawing (aligned top-center to prevent head cropping)
     drawImageCover(ctx, img, sideMargin, y, availableW, frameH);
 
+    // Frame indicators: Left "▸ 1", Right "up ▲"
     ctx.fillStyle = '#000000';
-    ctx.font = `bold 28px ${font}`;
+    ctx.font = `bold 24px ${font}`;
     ctx.textAlign = 'right';
-    ctx.fillText(`▸ ${i + 1}`, sideMargin - 18, y + frameH / 2 + 10);
+    ctx.fillText(`▸ ${i + 1}`, sideMargin - 20, y + frameH / 2 + 8);
 
-    ctx.font = `bold 22px ${font}`;
+    ctx.font = `bold 20px ${font}`;
     ctx.textAlign = 'left';
-    ctx.fillText('up ▲', sideMargin + availableW + 18, y + frameH / 2 + 8);
+    ctx.fillText('up ▲', sideMargin + availableW + 20, y + frameH / 2 + 6);
   });
 
-  const footerCenterY = height - 140;
+  // 2. Bottom Branding / Typography
+  const footerCenterY = height - 160;
 
   ctx.fillStyle = textColor || '#000000';
   ctx.textAlign = 'center';
 
-  ctx.font = `italic bold 64px ${font}`;
+  // Main Event / Logo Title
+  ctx.font = `italic bold 72px ${font}`;
   ctx.fillText(eventName, width / 2, footerCenterY);
 
+  // Subtitle / Hashtag Text
   ctx.font = `bold 22px ${font}`;
-  ctx.fillText(subtitleText.toUpperCase(), width / 2, footerCenterY + 45);
+  ctx.fillText(subtitleText.toUpperCase(), width / 2, footerCenterY + 50);
 
+  // Draw selected stickers/emoticons
   drawStickers(ctx, width, height, stickerStyle);
 }
 
