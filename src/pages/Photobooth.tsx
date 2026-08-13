@@ -13,6 +13,7 @@ import {
   Timer,
   Play,
   Settings,
+  Eye,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from '../lib/supabase';
@@ -41,6 +42,7 @@ export default function Photobooth() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const modalCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const [availableCameras, setAvailableCameras] = useState<CameraDevice[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
@@ -49,8 +51,8 @@ export default function Photobooth() {
   // Pre-Session Configuration Settings
   const [showSetupModal, setShowSetupModal] = useState<boolean>(true);
   const [useTimer, setUseTimer] = useState<boolean>(true);
-  const [timerDuration, setTimerDuration] = useState<number>(3); // 3 seconds default
-  const [selectedTemplate, setSelectedTemplate] = useState<number>(5); // Default to LookUp 4-Frame
+  const [timerDuration, setTimerDuration] = useState<number>(3);
+  const [selectedTemplate, setSelectedTemplate] = useState<number>(5);
 
   const [photos, setPhotos] = useState<HTMLImageElement[]>([]);
   const [isCapturingSeries, setIsCapturingSeries] = useState(false);
@@ -63,14 +65,40 @@ export default function Photobooth() {
   const [textColor, setTextColor] = useState('#2C3E50');
   const [fontStyle, setFontStyle] = useState('serif');
 
-  // AFTER (Fix):
-  const [, setCustomTemplateUrls] = useState<string[]>([]);
+  const [customTemplateUrls, setCustomTemplateUrls] = useState<string[]>([]);
   const [activeCustomOverlayImg, setActiveCustomOverlayImg] = useState<HTMLImageElement | null>(
     null
   );
+  const [dummyImages, setDummyImages] = useState<HTMLImageElement[]>([]);
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+
+  // Generate placeholder images for the setup modal preview
+  useEffect(() => {
+    const imgs: HTMLImageElement[] = [];
+    const colors = ['#1E293B', '#334155', '#475569', '#64748B', '#94A3B8', '#CBD5E1'];
+
+    colors.forEach((color, i) => {
+      const c = document.createElement('canvas');
+      c.width = 1200;
+      c.height = 800;
+      const ctx = c.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, 1200, 800);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 42px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Preview Shot ${i + 1}`, 600, 400);
+      }
+      const img = new Image();
+      img.src = c.toDataURL();
+      imgs.push(img);
+    });
+
+    setDummyImages(imgs);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -111,6 +139,41 @@ export default function Photobooth() {
       setSelectedTemplate(4);
     };
   };
+
+  // Render Modal Live Template Preview
+  useEffect(() => {
+    if (!showSetupModal || !modalCanvasRef.current || dummyImages.length < 4) return;
+    const canvas = modalCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const opts = {
+      ctx,
+      images: dummyImages,
+      width: 1200,
+      height: 2400,
+      eventName,
+      subtitleText,
+      textColor,
+      fontStyle,
+      customOverlayImg: activeCustomOverlayImg,
+    };
+
+    if (selectedTemplate === 5) renderTemplate5(opts);
+    if (selectedTemplate === 1) renderTemplate1(opts);
+    if (selectedTemplate === 2) renderTemplate2(opts);
+    if (selectedTemplate === 3) renderTemplate3(opts);
+    if (selectedTemplate === 4) renderCustomPNGTemplate(opts);
+  }, [
+    showSetupModal,
+    selectedTemplate,
+    dummyImages,
+    eventName,
+    subtitleText,
+    textColor,
+    fontStyle,
+    activeCustomOverlayImg,
+  ]);
 
   const fetchAvailableCameras = useCallback(async () => {
     try {
@@ -400,73 +463,117 @@ export default function Photobooth() {
         )}
       </header>
 
-      {/* Pre-Shot Setup Overlay Modal */}
+      {/* Pre-Shot Setup Overlay Modal with Live Preview */}
       {showSetupModal && photos.length === 0 && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-2xl space-y-6">
+          <div className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
             <div className="text-center">
-              <h2 className="text-lg font-black text-white flex items-center justify-center gap-2">
-                <Settings className="w-5 h-5 text-red-500" /> Photobooth Options
+              <h2 className="text-base font-black text-white flex items-center justify-center gap-2">
+                <Settings className="w-4 h-4 text-red-500" /> Photobooth Setup
               </h2>
-              <p className="text-xs text-gray-400 mt-1">Configure your session before shooting</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                Customize your session and preview layout
+              </p>
             </div>
 
-            {/* Layout Selector */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-red-500" /> Select Layout
+            {/* Canvas Frame Preview Window */}
+            <div className="flex flex-col items-center gap-1.5 bg-black/60 p-3 rounded-2xl border border-gray-800">
+              <div className="flex items-center gap-1 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
+                <Eye className="w-3 h-3 text-red-500" /> Frame Preview
+              </div>
+              <div className="relative w-full max-w-[180px] aspect-[1/2] rounded-xl overflow-hidden border border-gray-800 bg-gray-950 flex items-center justify-center shadow-lg">
+                <canvas
+                  ref={modalCanvasRef}
+                  width={1200}
+                  height={2400}
+                  className="w-full h-auto rounded-lg"
+                />
+              </div>
+            </div>
+
+            {/* Layout Options */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-gray-300 flex items-center gap-1.5">
+                <Layers className="w-3 h-3 text-red-500" /> Select Layout
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1.5">
                 {[
-                  { id: 5, name: 'LookUp (4 Shots)', desc: 'Stacked Vertical' },
-                  { id: 3, name: 'Polaroid (6 Shots)', desc: 'Classic Grid' },
-                  { id: 1, name: 'Dark Mesh (6 Shots)', desc: 'Vibrant Mesh' },
-                  { id: 2, name: 'Sunset (6 Shots)', desc: 'Warm Gradient' },
+                  { id: 5, name: 'LookUp (4 Shots)' },
+                  { id: 3, name: 'Polaroid (6 Shots)' },
+                  { id: 1, name: 'Dark Mesh (6 Shots)' },
+                  { id: 2, name: 'Sunset (6 Shots)' },
                 ].map((t) => (
                   <button
                     key={t.id}
                     onClick={() => setSelectedTemplate(t.id)}
-                    className={`p-3 rounded-2xl border text-left transition ${
+                    className={`p-2 rounded-xl border text-left transition ${
                       selectedTemplate === t.id
-                        ? 'bg-red-950/60 border-red-500 text-white'
+                        ? 'bg-red-950/60 border-red-500 text-white font-bold'
                         : 'bg-black/50 border-gray-800 text-gray-400 hover:bg-gray-800'
                     }`}
                   >
-                    <p className="text-xs font-bold text-white">{t.name}</p>
-                    <p className="text-[10px] text-gray-500 mt-0.5">{t.desc}</p>
+                    <p className="text-[11px] font-semibold">{t.name}</p>
                   </button>
                 ))}
               </div>
+
+              {/* Custom PNG Overlays */}
+              {customTemplateUrls.length > 0 && (
+                <div className="pt-2">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mb-1">
+                    Custom Event Frames:
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                    {customTemplateUrls.map((url, i) => (
+                      <button
+                        key={i}
+                        onClick={() => loadCustomOverlay(url)}
+                        className={`shrink-0 w-10 h-14 rounded-lg overflow-hidden border bg-black ${
+                          selectedTemplate === 4 && activeCustomOverlayImg?.src === url
+                            ? 'border-red-500 ring-2 ring-red-500/50'
+                            : 'border-gray-800 opacity-60'
+                        }`}
+                      >
+                        <img
+                          src={url}
+                          alt={`Custom ${i + 1}`}
+                          className="w-full h-full object-contain p-0.5"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Timer Toggle */}
-            <div className="space-y-3 bg-black/40 border border-gray-800 p-4 rounded-2xl">
+            {/* Countdown Settings */}
+            <div className="space-y-2 bg-black/40 border border-gray-800 p-3 rounded-2xl">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-200 flex items-center gap-1.5">
-                  <Timer className="w-3.5 h-3.5 text-red-500" /> Countdown Timer
+                <span className="text-[11px] font-semibold text-gray-200 flex items-center gap-1.5">
+                  <Timer className="w-3 h-3 text-red-500" /> Timer Countdown
                 </span>
                 <button
                   type="button"
                   onClick={() => setUseTimer(!useTimer)}
-                  className={`w-11 h-6 rounded-full transition-colors p-0.5 ${
+                  className={`w-9 h-5 rounded-full transition-colors p-0.5 ${
                     useTimer ? 'bg-red-600' : 'bg-gray-800'
                   }`}
                 >
                   <div
-                    className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                      useTimer ? 'translate-x-5' : 'translate-x-0'
+                    className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                      useTimer ? 'translate-x-4' : 'translate-x-0'
                     }`}
                   />
                 </button>
               </div>
 
               {useTimer && (
-                <div className="flex gap-2 pt-2 border-t border-gray-800/80">
+                <div className="flex gap-1.5 pt-1.5 border-t border-gray-800/80">
                   {[2, 3, 5].map((sec) => (
                     <button
                       key={sec}
                       onClick={() => setTimerDuration(sec)}
-                      className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition ${
+                      className={`flex-1 py-1 rounded-lg text-[11px] font-bold border transition ${
                         timerDuration === sec
                           ? 'bg-red-600 border-red-500 text-white'
                           : 'bg-gray-900 border-gray-800 text-gray-400'
@@ -482,9 +589,9 @@ export default function Photobooth() {
             {/* Start Button */}
             <button
               onClick={startBurstCapture}
-              className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 active:scale-95 font-bold text-sm rounded-2xl shadow-xl flex items-center justify-center gap-2 text-white border border-red-500/30"
+              className="w-full py-3.5 bg-gradient-to-r from-red-600 to-red-700 active:scale-95 font-bold text-xs rounded-xl shadow-xl flex items-center justify-center gap-2 text-white border border-red-500/30"
             >
-              <Play className="w-4 h-4 fill-current" /> Start Photo Session
+              <Play className="w-3.5 h-3.5 fill-current" /> Start Photo Session
             </button>
           </div>
         </div>
