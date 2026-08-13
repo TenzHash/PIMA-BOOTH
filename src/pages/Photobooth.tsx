@@ -174,7 +174,7 @@ export default function Photobooth() {
         }
 
         const urls: string[] = data.custom_template_urls || [];
-        setCustomTemplateUrls(urls); // This updates the state so the custom option renders!
+        setCustomTemplateUrls(urls);
 
         if (urls.length > 0) {
           loadCustomOverlay(urls[0]);
@@ -279,7 +279,6 @@ export default function Photobooth() {
     }
   }, [selectedDeviceId, fetchAvailableCameras]);
 
-  // Determine required shots based on template type (4 shots for template 5, 6 shots for others)
   const requiredPhotoCount = selectedTemplate === 5 ? 4 : 6;
   const isFourFrameLayout = requiredPhotoCount === 4;
   const isCameraActive = photos.length < requiredPhotoCount;
@@ -406,7 +405,6 @@ export default function Photobooth() {
     setIsCapturingSeries(false);
   };
 
-  // Render composite template canvas whenever captured photos match target count
   useEffect(() => {
     const targetCount = requiredPhotoCount;
     if (photos.length < targetCount || !canvasRef.current) return;
