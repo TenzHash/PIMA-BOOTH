@@ -287,13 +287,13 @@ export default function Photobooth() {
     };
   }, [isCameraActive, startCamera]);
 
-  // Precise 3:2 Snapshot calculation matching the viewfinder mask
+  // Perfectly synchronized 1:1 Crop matching DOM Overlay
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
 
     const targetWidth = 1200;
-    const targetHeight = 800; // 3:2 Aspect Ratio Frame Slot
+    const targetHeight = 800;
     const targetAspect = targetWidth / targetHeight;
 
     const videoWidth = video.videoWidth || 1280;
@@ -310,8 +310,8 @@ export default function Photobooth() {
       sourceX = (videoWidth - sourceWidth) / 2;
     } else {
       sourceHeight = videoWidth / targetAspect;
-      // Position crop area at top-center (aligns with red guide box)
-      sourceY = (videoHeight - sourceHeight) * 0.12;
+      // Exact center crop matching the DOM mask box
+      sourceY = (videoHeight - sourceHeight) / 2;
     }
 
     const tempCanvas = document.createElement('canvas');
@@ -668,7 +668,8 @@ export default function Photobooth() {
 
       {photos.length < requiredPhotoCount ? (
         <main className="w-full flex-1 flex flex-col justify-center items-center gap-4 my-auto">
-          <div className="relative w-full aspect-[3/4] max-w-[320px] bg-black rounded-3xl overflow-hidden border-2 border-gray-800/80 shadow-2xl flex items-center justify-center">
+          {/* Synchronized Viewfinder Box */}
+          <div className="relative w-full aspect-[3/2] max-w-[340px] bg-black rounded-3xl overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
             {cameraError ? (
               <div className="p-6 text-center text-red-400 flex flex-col items-center gap-2.5">
                 <AlertCircle className="w-10 h-10 text-red-500" />
@@ -684,30 +685,12 @@ export default function Photobooth() {
                   className={`w-full h-full object-cover ${isFrontCamera() ? '-scale-x-100' : ''}`}
                 />
 
-                {/* Real-time 3:2 Aspect Ratio Crop Guidelines Overlay */}
-                <div className="absolute inset-0 pointer-events-none flex flex-col justify-between">
-                  <div className="w-full h-[12%] bg-black/60 backdrop-blur-[1px] border-b border-white/20 flex items-center justify-center">
-                    <span className="text-[9px] font-bold text-gray-300 uppercase tracking-wider">
-                      Cropped Area
-                    </span>
-                  </div>
-
-                  <div className="w-full aspect-[3/2] border-2 border-dashed border-red-500/80 relative my-auto shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]">
-                    <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-red-500" />
-                    <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-red-500" />
-                    <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-red-500" />
-                    <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-red-500" />
-
-                    <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-black text-white/80 uppercase tracking-widest bg-black/40 px-2 py-0.5 rounded-full border border-white/10">
-                      Photo Zone
-                    </span>
-                  </div>
-
-                  <div className="w-full h-[22%] bg-black/60 backdrop-blur-[1px] border-t border-white/20 flex items-center justify-center">
-                    <span className="text-[9px] font-bold text-gray-300 uppercase tracking-wider">
-                      Cropped Area
-                    </span>
-                  </div>
+                {/* Viewfinder Corner Accents */}
+                <div className="absolute inset-2 pointer-events-none border border-dashed border-white/30 rounded-2xl">
+                  <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-red-500" />
+                  <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-red-500" />
+                  <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-red-500" />
+                  <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-red-500" />
                 </div>
               </>
             )}
@@ -728,7 +711,7 @@ export default function Photobooth() {
             )}
           </div>
 
-          <div className="w-full max-w-[320px] flex gap-2">
+          <div className="w-full max-w-[340px] flex gap-2">
             <button
               onClick={() => setShowSetupModal(true)}
               disabled={isCapturingSeries}

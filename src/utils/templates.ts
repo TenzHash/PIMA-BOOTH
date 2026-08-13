@@ -12,7 +12,7 @@ export interface TemplateOptions {
   customOverlayImg?: HTMLImageElement | null;
 }
 
-// Aspect-Fit Cover Renderer matching pre-cropped 3:2 camera frames
+// Complete Aspect-Ratio Cover Scaling Helper
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -32,9 +32,11 @@ function drawImageCover(
   let offsetY = 0;
 
   if (imgAspect > targetAspect) {
+    // Image is wider than frame: crop sides equally
     renderW = h * imgAspect;
     offsetX = (w - renderW) / 2;
   } else {
+    // Image is taller than frame: crop top and bottom equally from center
     renderH = w / imgAspect;
     offsetY = (h - renderH) / 2;
   }
@@ -45,6 +47,7 @@ function drawImageCover(
   ctx.clip();
   ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
 
+  // Subtle vignette gradient for photo depth
   const grad = ctx.createRadialGradient(
     x + w / 2, y + h / 2, Math.min(w, h) * 0.3,
     x + w / 2, y + h / 2, Math.max(w, h) * 0.75
