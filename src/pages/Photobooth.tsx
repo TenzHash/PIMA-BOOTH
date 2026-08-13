@@ -145,15 +145,20 @@ export default function Photobooth() {
   useEffect(() => {
     let isMounted = true;
     const fetchEventData = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('events')
-        .select('*')
+        .select('template_configs, custom_template_urls, event_name')
         .eq('event_slug', eventSlug)
         .maybeSingle();
 
+      if (error) {
+        console.error('Error fetching event config from Supabase:', error);
+        return;
+      }
+
       if (isMounted && data) {
-        if (data.template_configs) {
-          setTemplateConfigs({ ...defaultConfigMap, ...data.template_configs });
+        if (data.template_configs && typeof data.template_configs === 'object') {
+          setTemplateConfigs((prev) => ({ ...prev, ...data.template_configs }));
         }
 
         const urls: string[] = data.custom_template_urls || [];
@@ -295,7 +300,6 @@ export default function Photobooth() {
       sourceWidth = videoWidth,
       sourceHeight = videoHeight;
 
-    // Inside takeSingleFrame() in Photobooth.tsx:
     if (videoAspect > targetAspect) {
       sourceWidth = videoHeight * targetAspect;
       sourceX = (videoWidth - sourceWidth) / 2;
@@ -343,7 +347,6 @@ export default function Photobooth() {
   const startBurstCapture = async () => {
     setShowSetupModal(false);
 
-    // If timer is off, user snaps photos manually with the Snap button
     if (!useTimer) {
       return;
     }
@@ -377,39 +380,68 @@ export default function Photobooth() {
     setIsCapturingSeries(false);
   };
 
-  // Render Final Canvas Output using the active template's settings
+  // Render Final Canvas Output using Promises to prevent missing frames
   useEffect(() => {
-    if (photos.length >= requiredPhotoCount && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+    const targetCount = selectedTemplate === 5 ? 4 : 6;
 
-      const currentConfig =
-        templateConfigs[String(selectedTemplate)] ||
-        defaultConfigMap[String(selectedTemplate)] ||
-        defaultConfigMap['5'];
+    if (photos.length < targetCount || !canvasRef.current) return;
 
-      const opts = {
-        ctx,
-        images: photos,
-        width: 1200,
-        height: 2400,
-        eventName: currentConfig.title,
-        subtitleText: currentConfig.subtitle,
-        textColor: currentConfig.color,
-        fontStyle: currentConfig.font,
-        gradientTheme: currentConfig.gradient,
-        stickerStyle: currentConfig.sticker,
-        customOverlayImg: activeCustomOverlayImg,
-      };
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-      if (selectedTemplate === 5) renderTemplate5(opts);
-      if (selectedTemplate === 1) renderTemplate1(opts);
-      if (selectedTemplate === 2) renderTemplate2(opts);
-      if (selectedTemplate === 3) renderTemplate3(opts);
-      if (selectedTemplate === 4) renderCustomPNGTemplate(opts);
-    }
-  }, [photos, selectedTemplate, templateConfigs, activeCustomOverlayImg, requiredPhotoCount]);
+    let isMounted = true;
+
+    const loadAllImages = async () => {
+      const imagePromises = photos.slice(0, targetCount).map((photoObj) => {
+        return new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = (err) => reject(err);
+          img.src = typeof photoObj === 'string' ? photoObj : photoObj.src;
+        });
+      });
+
+      try {
+        const loadedImages = await Promise.all(imagePromises);
+        if (!isMounted) return;
+
+        const currentConfig =
+          templateConfigs[String(selectedTemplate)] ||
+          defaultConfigMap[String(selectedTemplate)] ||
+          defaultConfigMap['5'];
+
+        const opts = {
+          ctx,
+          images: loadedImages,
+          width: 1200,
+          height: 2400,
+          eventName: currentConfig.title,
+          subtitleText: currentConfig.subtitle,
+          textColor: currentConfig.color,
+          fontStyle: currentConfig.font,
+          gradientTheme: currentConfig.gradient,
+          stickerStyle: currentConfig.sticker,
+          customOverlayImg: activeCustomOverlayImg,
+        };
+
+        if (selectedTemplate === 5) renderTemplate5(opts);
+        if (selectedTemplate === 1) renderTemplate1(opts);
+        if (selectedTemplate === 2) renderTemplate2(opts);
+        if (selectedTemplate === 3) renderTemplate3(opts);
+        if (selectedTemplate === 4) renderCustomPNGTemplate(opts);
+      } catch (err) {
+        console.error('Error loading photobooth frame images:', err);
+      }
+    };
+
+    loadAllImages();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [photos, selectedTemplate, templateConfigs, activeCustomOverlayImg]);
 
   const handleSaveAndUpload = async () => {
     if (!canvasRef.current || photos.length < requiredPhotoCount) return;
