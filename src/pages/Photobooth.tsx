@@ -64,6 +64,14 @@ const defaultConfigMap: Record<string, TemplateConfig> = {
     gradient: 'pastel',
     sticker: 'none',
   },
+  '4': {
+    title: 'PIMA ALBAY',
+    subtitle: 'WELCOME PARTY 2026',
+    color: '#000000',
+    font: 'sans-serif',
+    gradient: 'monochrome',
+    sticker: 'none',
+  },
   '5': {
     title: 'PIMA',
     subtitle: 'WELCOME PARTY 2026',
@@ -104,7 +112,7 @@ export default function Photobooth() {
 
   const [templateConfigs, setTemplateConfigs] =
     useState<Record<string, TemplateConfig>>(defaultConfigMap);
-  const [, setCustomTemplateUrls] = useState<string[]>([]);
+  const [customTemplateUrls, setCustomTemplateUrls] = useState<string[]>([]);
   const [activeCustomOverlayImg, setActiveCustomOverlayImg] = useState<HTMLImageElement | null>(
     null
   );
@@ -166,7 +174,7 @@ export default function Photobooth() {
         }
 
         const urls: string[] = data.custom_template_urls || [];
-        setCustomTemplateUrls(urls);
+        setCustomTemplateUrls(urls); // This updates the state so the custom option renders!
 
         if (urls.length > 0) {
           loadCustomOverlay(urls[0]);
@@ -271,15 +279,11 @@ export default function Photobooth() {
     }
   }, [selectedDeviceId, fetchAvailableCameras]);
 
+  // Determine required shots based on template type (4 shots for template 5, 6 shots for others)
   const requiredPhotoCount = selectedTemplate === 5 ? 4 : 6;
-  // The camera UI/capture must be keyed to the actual shot count, not only the template id.
-  // This guarantees any 4-shot layout keeps the dedicated 4-frame camera zone.
   const isFourFrameLayout = requiredPhotoCount === 4;
   const isCameraActive = photos.length < requiredPhotoCount;
 
-  // Start the camera only after the setup modal is closed. The selected layout is
-  // part of this effect so switching between the 4-frame and 6-shot zones always
-  // attaches the stream to the currently rendered video element.
   useEffect(() => {
     if (!isCameraActive || showSetupModal) return;
 
@@ -294,8 +298,6 @@ export default function Photobooth() {
     };
   }, [isCameraActive, showSetupModal, selectedTemplate, startCamera]);
 
-  // Capture dimensions are deliberately isolated by layout:
-  // 4-frame LookUp = original 3:2; 6-shot layouts = portrait 3:4.
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
@@ -303,8 +305,6 @@ export default function Photobooth() {
     const videoWidth = video.videoWidth || 1280;
     const videoHeight = video.videoHeight || 720;
 
-    // Keep the 4-frame LookUp layout on its original 3:2 capture ratio.
-    // Only the 6-shot layouts use the portrait 3:4 camera framing.
     const isFourFrame = isFourFrameLayout;
     const targetWidth = isFourFrame ? 1200 : 900;
     const targetHeight = isFourFrame ? 800 : 1200;
@@ -328,7 +328,7 @@ export default function Photobooth() {
       sourceX = (videoWidth - sourceWidth) / 2;
     } else {
       sourceHeight = videoWidth / targetAspect;
-      sourceY = 0; // Top-aligned crop to keep faces centered and fully visible
+      sourceY = 0;
     }
 
     if (isFrontCamera()) {
@@ -353,11 +353,17 @@ export default function Photobooth() {
     return img;
   };
 
+  const triggerFlash = () => {
+    setFlashEffect(true);
+    setTimeout(() => {
+      setFlashEffect(false);
+    }, 200);
+  };
+
   const snapSingleManualFrame = () => {
     if (photos.length >= requiredPhotoCount) return;
 
-    setFlashEffect(true);
-    setTimeout(() => setFlashEffect(false), 150);
+    triggerFlash();
 
     const frameImg = takeSingleFrame();
     if (frameImg) {
@@ -386,8 +392,7 @@ export default function Photobooth() {
       }
       setCountdown(null);
 
-      setFlashEffect(true);
-      setTimeout(() => setFlashEffect(false), 150);
+      triggerFlash();
 
       const frameImg = takeSingleFrame();
       if (frameImg) {
@@ -401,6 +406,7 @@ export default function Photobooth() {
     setIsCapturingSeries(false);
   };
 
+  // Render composite template canvas whenever captured photos match target count
   useEffect(() => {
     const targetCount = requiredPhotoCount;
     if (photos.length < targetCount || !canvasRef.current) return;
@@ -612,10 +618,16 @@ export default function Photobooth() {
                   { id: 3, name: 'Polaroid (6 Shots)' },
                   { id: 1, name: 'Dark Mesh (6 Shots)' },
                   { id: 2, name: 'Sunset (6 Shots)' },
+                  customTemplateUrls.length > 0 ? [{ id: 4, name: 'Custom Overlay' }] : [],
                 ].map((t) => (
                   <button
                     key={t.id}
-                    onClick={() => setSelectedTemplate(t.id)}
+                    onClick={() => {
+                      setSelectedTemplate(t.id);
+                      if (t.id === 4 && customTemplateUrls.length > 0) {
+                        loadCustomOverlay(customTemplateUrls[0]);
+                      }
+                    }}
                     className={`p-2 rounded-xl border text-left transition ${
                       selectedTemplate === t.id
                         ? 'bg-red-950/60 border-red-500 text-white font-bold'
@@ -680,7 +692,6 @@ export default function Photobooth() {
       {photos.length < requiredPhotoCount ? (
         <main className="w-full flex-1 flex flex-col justify-center items-center gap-4 my-auto">
           {isFourFrameLayout ? (
-            /* Dedicated 4-frame camera zone — intentionally unchanged from the original 3:2 view. */
             <div className="relative w-full aspect-[3/2] max-w-[340px] rounded-3xl bg-black overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
               {cameraError ? (
                 <div className="p-6 text-center text-red-400 flex flex-col items-center gap-2.5">
@@ -719,7 +730,6 @@ export default function Photobooth() {
               )}
             </div>
           ) : (
-            /* Dedicated 6-shot portrait camera zone — based on the supplied reference. */
             <div className="relative w-full aspect-[3/4] max-w-[400px] rounded-[2rem] bg-black overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
               {cameraError ? (
                 <div className="p-6 text-center text-red-400 flex flex-col items-center gap-2.5">
@@ -817,10 +827,16 @@ export default function Photobooth() {
               { id: 3, name: 'Polaroid' },
               { id: 1, name: 'Mesh' },
               { id: 2, name: 'Sunset' },
+              ...(customTemplateUrls.length > 0 ? [{ id: 4, name: 'Custom' }] : []),
             ].map((t) => (
               <button
                 key={t.id}
-                onClick={() => setSelectedTemplate(t.id)}
+                onClick={() => {
+                  setSelectedTemplate(t.id);
+                  if (t.id === 4 && customTemplateUrls.length > 0) {
+                    loadCustomOverlay(customTemplateUrls[0]);
+                  }
+                }}
                 className={`py-2 px-1 text-[11px] font-semibold rounded-xl border transition flex items-center justify-center gap-1 active:scale-95 ${
                   selectedTemplate === t.id
                     ? 'bg-red-600 border-red-500 text-white shadow-md font-bold'
@@ -879,7 +895,6 @@ export default function Photobooth() {
 
             <button
               onClick={() => {
-                photos.length < requiredPhotoCount ? null : setPhotos([]);
                 setPhotos([]);
                 setUploadedUrl(null);
                 setShowSetupModal(true);
