@@ -272,22 +272,30 @@ export default function Photobooth() {
   }, [selectedDeviceId, fetchAvailableCameras]);
 
   const requiredPhotoCount = selectedTemplate === 5 ? 4 : 6;
+  // The camera UI/capture must be keyed to the actual shot count, not only the template id.
+  // This guarantees any 4-shot layout keeps the dedicated 4-frame camera zone.
+  const isFourFrameLayout = requiredPhotoCount === 4;
   const isCameraActive = photos.length < requiredPhotoCount;
 
+  // Start the camera only after the setup modal is closed. The selected layout is
+  // part of this effect so switching between the 4-frame and 6-shot zones always
+  // attaches the stream to the currently rendered video element.
   useEffect(() => {
-    if (isCameraActive) {
-      startCamera();
-    }
+    if (!isCameraActive || showSetupModal) return;
+
+    startCamera();
 
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
+      if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
-        stream.gettracks?.()?.forEach((track: MediaStreamTrack) => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
+        videoRef.current.srcObject = null;
       }
     };
-  }, [isCameraActive, startCamera]);
+  }, [isCameraActive, showSetupModal, selectedTemplate, startCamera]);
 
-  // Frame Capture: Apply the same portrait 3:4 top-cropped framing used by the live viewfinder
+  // Capture dimensions are deliberately isolated by layout:
+  // 4-frame LookUp = original 3:2; 6-shot layouts = portrait 3:4.
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
@@ -295,8 +303,11 @@ export default function Photobooth() {
     const videoWidth = video.videoWidth || 1280;
     const videoHeight = video.videoHeight || 720;
 
-    const targetWidth = 900;
-    const targetHeight = 1200; // Portrait 3:4 aspect ratio to match the camera viewfinder
+    // Keep the 4-frame LookUp layout on its original 3:2 capture ratio.
+    // Only the 6-shot layouts use the portrait 3:4 camera framing.
+    const isFourFrame = isFourFrameLayout;
+    const targetWidth = isFourFrame ? 1200 : 900;
+    const targetHeight = isFourFrame ? 800 : 1200;
 
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = targetWidth;
@@ -391,7 +402,7 @@ export default function Photobooth() {
   };
 
   useEffect(() => {
-    const targetCount = selectedTemplate === 5 ? 4 : 6;
+    const targetCount = requiredPhotoCount;
     if (photos.length < targetCount || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
@@ -449,7 +460,7 @@ export default function Photobooth() {
     return () => {
       isMounted = false;
     };
-  }, [photos, selectedTemplate, templateConfigs, activeCustomOverlayImg]);
+  }, [photos, selectedTemplate, requiredPhotoCount, templateConfigs, activeCustomOverlayImg]);
 
   const handleSaveAndUpload = async () => {
     if (!canvasRef.current || photos.length < requiredPhotoCount) return;
@@ -668,60 +679,95 @@ export default function Photobooth() {
 
       {photos.length < requiredPhotoCount ? (
         <main className="w-full flex-1 flex flex-col justify-center items-center gap-4 my-auto">
-          {/* Viewfinder box aspect ratio strictly fixed to 3:2 across all templates so the camera box matches the 2nd image */}
-          <div className="relative w-full aspect-[3/4] max-w-[400px] bg-black rounded-[2rem] overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
-            {cameraError ? (
-              <div className="p-6 text-center text-red-400 flex flex-col items-center gap-2.5">
-                <AlertCircle className="w-10 h-10 text-red-500" />
-                <p className="text-xs font-medium leading-relaxed">{cameraError}</p>
-              </div>
-            ) : (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className={`w-full h-full object-cover object-top ${isFrontCamera() ? '-scale-x-100' : ''}`}
-                />
-
-                {/* Reference-style portrait framing guide */}
-                <div className="absolute inset-[9%_7%_10%] pointer-events-none border-[3px] border-dashed border-white/55 rounded-[1.5rem]">
-                  <div className="absolute top-4 left-4 w-7 h-7 border-t-[4px] border-l-[4px] border-red-500" />
-                  <div className="absolute top-4 right-4 w-7 h-7 border-t-[4px] border-r-[4px] border-red-500" />
-                  <div className="absolute bottom-4 left-4 w-7 h-7 border-b-[4px] border-l-[4px] border-red-500" />
-                  <div className="absolute bottom-4 right-4 w-7 h-7 border-b-[4px] border-r-[4px] border-red-500" />
+          {isFourFrameLayout ? (
+            /* Dedicated 4-frame camera zone — intentionally unchanged from the original 3:2 view. */
+            <div className="relative w-full aspect-[3/2] max-w-[340px] rounded-3xl bg-black overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
+              {cameraError ? (
+                <div className="p-6 text-center text-red-400 flex flex-col items-center gap-2.5">
+                  <AlertCircle className="w-10 h-10 text-red-500" />
+                  <p className="text-xs font-medium leading-relaxed">{cameraError}</p>
                 </div>
+              ) : (
+                <>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`w-full h-full object-cover object-top ${isFrontCamera() ? '-scale-x-100' : ''}`}
+                  />
+                  <div className="absolute inset-2 pointer-events-none border border-dashed border-white/30 rounded-2xl">
+                    <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-red-500" />
+                    <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-red-500" />
+                    <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-red-500" />
+                    <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-red-500" />
+                  </div>
 
-                <div className="absolute top-0 left-0 right-0 h-[13%] bg-black/55 backdrop-blur-[2px] flex items-center justify-center z-10">
-                  <span className="text-[11px] sm:text-xs font-black tracking-wide text-white uppercase">
-                    Position Face Here
-                  </span>
-                </div>
-
-                <div className="absolute bottom-0 left-0 right-0 h-[10%] bg-black/55 backdrop-blur-[2px] flex items-center justify-center z-10">
-                  <span className="text-[10px] sm:text-[11px] font-bold tracking-wide text-white/90 uppercase">
-                    Crop Safety Zone
-                  </span>
-                </div>
-              </>
-            )}
-
-            <div className="absolute top-2 right-2 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-full text-[11px] font-black border border-white/15 text-white shadow-lg z-20">
-              {photos.length} / {requiredPhotoCount} Shots
+                  <div className="absolute top-2 right-2 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-full text-[11px] font-black border border-white/15 text-white shadow-lg z-20">
+                    {photos.length} / {requiredPhotoCount} Shots
+                  </div>
+                  {countdown !== null && (
+                    <div className="absolute top-2 left-2 bg-red-600/90 text-white backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-black border border-red-400/40 shadow-xl flex items-center gap-1.5 animate-pulse z-20">
+                      <Timer className="w-3.5 h-3.5" />
+                      <span>SNAP IN {countdown}...</span>
+                    </div>
+                  )}
+                  {flashEffect && (
+                    <div className="absolute inset-0 bg-white opacity-90 transition-opacity duration-150 z-30" />
+                  )}
+                </>
+              )}
             </div>
+          ) : (
+            /* Dedicated 6-shot portrait camera zone — based on the supplied reference. */
+            <div className="relative w-full aspect-[3/4] max-w-[400px] rounded-[2rem] bg-black overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
+              {cameraError ? (
+                <div className="p-6 text-center text-red-400 flex flex-col items-center gap-2.5">
+                  <AlertCircle className="w-10 h-10 text-red-500" />
+                  <p className="text-xs font-medium leading-relaxed">{cameraError}</p>
+                </div>
+              ) : (
+                <>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`w-full h-full object-cover object-top ${isFrontCamera() ? '-scale-x-100' : ''}`}
+                  />
+                  <div className="absolute inset-[9%_7%_10%] pointer-events-none border-[3px] border-dashed border-white/55 rounded-[1.5rem]">
+                    <div className="absolute top-4 left-4 w-7 h-7 border-t-[4px] border-l-[4px] border-red-500" />
+                    <div className="absolute top-4 right-4 w-7 h-7 border-t-[4px] border-r-[4px] border-red-500" />
+                    <div className="absolute bottom-4 left-4 w-7 h-7 border-b-[4px] border-l-[4px] border-red-500" />
+                    <div className="absolute bottom-4 right-4 w-7 h-7 border-b-[4px] border-r-[4px] border-red-500" />
+                  </div>
+                  <div className="absolute top-0 left-0 right-0 h-[13%] bg-black/55 backdrop-blur-[2px] flex items-center justify-center z-10">
+                    <span className="text-[11px] sm:text-xs font-black tracking-wide text-white uppercase">
+                      Position Face Here
+                    </span>
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 h-[10%] bg-black/55 backdrop-blur-[2px] flex items-center justify-center z-10">
+                    <span className="text-[10px] sm:text-[11px] font-bold tracking-wide text-white/90 uppercase">
+                      Crop Safety Zone
+                    </span>
+                  </div>
 
-            {countdown !== null && (
-              <div className="absolute top-2 left-2 bg-red-600/90 text-white backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-black border border-red-400/40 shadow-xl flex items-center gap-1.5 animate-pulse z-20">
-                <Timer className="w-3.5 h-3.5" />
-                <span>SNAP IN {countdown}...</span>
-              </div>
-            )}
-
-            {flashEffect && (
-              <div className="absolute inset-0 bg-white opacity-90 transition-opacity duration-150 z-30" />
-            )}
-          </div>
+                  <div className="absolute top-2 right-2 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-full text-[11px] font-black border border-white/15 text-white shadow-lg z-20">
+                    {photos.length} / {requiredPhotoCount} Shots
+                  </div>
+                  {countdown !== null && (
+                    <div className="absolute top-2 left-2 bg-red-600/90 text-white backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-black border border-red-400/40 shadow-xl flex items-center gap-1.5 animate-pulse z-20">
+                      <Timer className="w-3.5 h-3.5" />
+                      <span>SNAP IN {countdown}...</span>
+                    </div>
+                  )}
+                  {flashEffect && (
+                    <div className="absolute inset-0 bg-white opacity-90 transition-opacity duration-150 z-30" />
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           <div className="w-full max-w-[400px] flex gap-2">
             <button
