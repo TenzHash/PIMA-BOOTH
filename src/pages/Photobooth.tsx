@@ -106,7 +106,7 @@ export default function Photobooth() {
   // Per-Template Customizations Loaded from Supabase
   const [templateConfigs, setTemplateConfigs] =
     useState<Record<string, TemplateConfig>>(defaultConfigMap);
-  const [customTemplateUrls, setCustomTemplateUrls] = useState<string[]>([]);
+  const [, setCustomTemplateUrls] = useState<string[]>([]);
   const [activeCustomOverlayImg, setActiveCustomOverlayImg] = useState<HTMLImageElement | null>(
     null
   );
