@@ -50,7 +50,7 @@ interface ExtendedEventSession {
 const defaultConfigMap: Record<string, TemplateConfig> = {
   '1': {
     title: 'PIMA ALBAY',
-    subtitle: 'Official Event Memory',
+    subtitle: 'WELCOME PARTY 2026',
     color: '#FFFFFF',
     font: 'sans-serif',
     gradient: 'dark',
@@ -58,7 +58,7 @@ const defaultConfigMap: Record<string, TemplateConfig> = {
   },
   '2': {
     title: 'PIMA ALBAY',
-    subtitle: 'Official Event Memory',
+    subtitle: 'WELCOME PARTY 2026',
     color: '#1E293B',
     font: 'serif',
     gradient: 'sunset',
@@ -66,7 +66,7 @@ const defaultConfigMap: Record<string, TemplateConfig> = {
   },
   '3': {
     title: 'PIMA ALBAY',
-    subtitle: 'Official Event Memory',
+    subtitle: 'WELCOME PARTY 2026',
     color: '#1E293B',
     font: 'serif',
     gradient: 'pastel',
@@ -689,7 +689,7 @@ export default function AdminDashboard() {
                 {/* Template Selector Tabs */}
                 <div className="grid grid-cols-4 gap-2 w-full mb-6">
                   {[
-                    { id: 5, name: 'LookUp 4-Frame' },
+                    { id: 5, name: '4-Frame' },
                     { id: 3, name: 'Polaroid' },
                     { id: 1, name: 'Classic Dark' },
                     { id: 2, name: 'Sunset' },
