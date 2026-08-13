@@ -10,7 +10,6 @@ export interface TemplateOptions {
   customOverlayImg?: HTMLImageElement | null;
 }
 
-// Helper function to draw images without distortion or cutting off faces
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -42,10 +41,20 @@ function drawImageCover(
   ctx.rect(x, y, w, h);
   ctx.clip();
   ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
+
+  // Subtle gradient vignette overlay for film-like depth
+  const grad = ctx.createRadialGradient(
+    x + w / 2, y + h / 2, Math.min(w, h) * 0.3,
+    x + w / 2, y + h / 2, Math.max(w, h) * 0.75
+  );
+  grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0.18)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, w, h);
+
   ctx.restore();
 }
 
-// Helper for text font styling
 function getFontFamily(style?: string): string {
   switch (style) {
     case 'sans-serif':
@@ -58,7 +67,7 @@ function getFontFamily(style?: string): string {
   }
 }
 
-// Template 1: Dark Mode Grid
+// Template 1: Dark Mesh Gradient
 export function renderTemplate1({
   ctx,
   images,
@@ -69,7 +78,11 @@ export function renderTemplate1({
   textColor = '#FFFFFF',
   fontStyle = 'sans-serif',
 }: TemplateOptions) {
-  ctx.fillStyle = '#0F172A';
+  const bgGrad = ctx.createLinearGradient(0, 0, width, height);
+  bgGrad.addColorStop(0, '#0F172A');
+  bgGrad.addColorStop(0.5, '#1E1B4B');
+  bgGrad.addColorStop(1, '#020617');
+  ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, width, height);
 
   const font = getFontFamily(fontStyle);
@@ -106,7 +119,7 @@ export function renderTemplate1({
   ctx.fillText(subtitleText, width / 2, height - 70);
 }
 
-// Template 2: Sunset / Vibrant Theme
+// Template 2: Vibrant Sunset Gradient
 export function renderTemplate2({
   ctx,
   images,
@@ -114,12 +127,13 @@ export function renderTemplate2({
   height,
   eventName = 'EVENT NAME',
   subtitleText = 'Official Event Memory',
-  textColor = '#2C3E50',
+  textColor = '#1E293B',
   fontStyle = 'serif',
 }: TemplateOptions) {
-  const grad = ctx.createLinearGradient(0, 0, 0, height);
-  grad.addColorStop(0, '#FFF5EB');
-  grad.addColorStop(1, '#FED7AA');
+  const grad = ctx.createLinearGradient(0, 0, width, height);
+  grad.addColorStop(0, '#FFEDD5');
+  grad.addColorStop(0.5, '#FDBA74');
+  grad.addColorStop(1, '#F43F5E');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, width, height);
 
@@ -141,8 +155,8 @@ export function renderTemplate2({
     const y = startY + row * (cellH + gap);
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
-    ctx.shadowBlur = 12;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+    ctx.shadowBlur = 14;
     ctx.shadowOffsetY = 6;
     ctx.fillRect(x - 8, y - 8, cellW + 16, cellH + 16);
     ctx.shadowColor = 'transparent';
@@ -159,7 +173,7 @@ export function renderTemplate2({
   ctx.fillText(subtitleText, width / 2, height - 60);
 }
 
-// Template 3: Polaroid Classic Vertical Strip
+// Template 3: Polaroid Pastel Soft Gradient
 export function renderTemplate3({
   ctx,
   images,
@@ -167,10 +181,13 @@ export function renderTemplate3({
   height,
   eventName = 'PIMA ALBAY',
   subtitleText = 'Official Event Memory',
-  textColor = '#2C3E50',
+  textColor = '#1E293B',
   fontStyle = 'serif',
 }: TemplateOptions) {
-  ctx.fillStyle = '#F8FAFC';
+  const grad = ctx.createLinearGradient(0, 0, 0, height);
+  grad.addColorStop(0, '#F1F5F9');
+  grad.addColorStop(1, '#E2E8F0');
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, width, height);
 
   const font = getFontFamily(fontStyle);
@@ -196,8 +213,8 @@ export function renderTemplate3({
     const y = topMargin + r * (cellH + gap);
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
-    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
+    ctx.shadowBlur = 12;
     ctx.fillRect(x - 6, y - 6, cellW + 12, cellH + 12);
     ctx.shadowColor = 'transparent';
 
@@ -213,8 +230,7 @@ export function renderTemplate3({
   ctx.fillText(subtitleText, width / 2, height - 75);
 }
 
-// NEW Template 5: 4-Frame Vertical "lookUp" Wide Photo Strip Layout
-// Template 5: 4-Frame Vertical "lookUp" Photo Strip Layout
+// Template 5: 4-Frame "lookUp" Layout with Ambient Backdrop
 export function renderTemplate5({
   ctx,
   images,
@@ -225,59 +241,54 @@ export function renderTemplate5({
   textColor = '#000000',
   fontStyle = 'sans-serif',
 }: TemplateOptions) {
-  ctx.fillStyle = '#FFFFFF';
+  // Clean modern gradient background
+  const grad = ctx.createLinearGradient(0, 0, width, height);
+  grad.addColorStop(0, '#FFFFFF');
+  grad.addColorStop(1, '#F8FAFC');
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, width, height);
 
   const font = getFontFamily(fontStyle);
   const sideMargin = 80;
   const topMargin = 60;
-  const bottomSpace = 280; // Reserve space for footer text
+  const bottomSpace = 280;
   const gap = 24;
 
   const availableW = width - sideMargin * 2;
   const availableH = height - topMargin - bottomSpace;
   const frameH = (availableH - gap * 3) / 4;
 
-  // 1. Render 4 stacked photo frames
   images.slice(0, 4).forEach((img, i) => {
     const y = topMargin + i * (frameH + gap);
 
-    // Frame border
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 4;
     ctx.strokeRect(sideMargin, y, availableW, frameH);
 
-    // Image aspect-fit render
     drawImageCover(ctx, img, sideMargin, y, availableW, frameH);
 
-    // Left indicator ("▸ 1", "▸ 2"...)
     ctx.fillStyle = '#000000';
     ctx.font = `bold 28px ${font}`;
     ctx.textAlign = 'right';
     ctx.fillText(`▸ ${i + 1}`, sideMargin - 18, y + frameH / 2 + 10);
 
-    // Right indicator ("up ▲")
     ctx.font = `bold 22px ${font}`;
     ctx.textAlign = 'left';
     ctx.fillText('up ▲', sideMargin + availableW + 18, y + frameH / 2 + 8);
   });
 
-  // 2. Render Bottom Branding Text
   const footerCenterY = height - 140;
 
   ctx.fillStyle = textColor || '#000000';
   ctx.textAlign = 'center';
 
-  // Title Text
   ctx.font = `italic bold 64px ${font}`;
   ctx.fillText(eventName, width / 2, footerCenterY);
 
-  // Subtitle Text
   ctx.font = `bold 22px ${font}`;
   ctx.fillText(subtitleText.toUpperCase(), width / 2, footerCenterY + 45);
 }
 
-// Custom PNG Overlay Template Loader
 export function renderCustomPNGTemplate({
   ctx,
   images,

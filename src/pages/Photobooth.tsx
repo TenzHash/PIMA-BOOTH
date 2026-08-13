@@ -11,6 +11,8 @@ import {
   Layers,
   RotateCcw,
   Timer,
+  Play,
+  Settings,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from '../lib/supabase';
@@ -30,10 +32,8 @@ interface CameraDevice {
 export default function Photobooth() {
   const [searchParams] = useSearchParams();
 
-  // Normalize raw search param slug to match database format perfectly
   const rawParam = searchParams.get('event') || 'pima-albay';
   const decodedSlug = decodeURIComponent(rawParam);
-
   const eventSlug = decodedSlug
     .trim()
     .toLowerCase()
@@ -46,6 +46,12 @@ export default function Photobooth() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [cameraError, setCameraError] = useState<string | null>(null);
 
+  // Pre-Session Configuration Settings
+  const [showSetupModal, setShowSetupModal] = useState<boolean>(true);
+  const [useTimer, setUseTimer] = useState<boolean>(true);
+  const [timerDuration, setTimerDuration] = useState<number>(3); // 3 seconds default
+  const [selectedTemplate, setSelectedTemplate] = useState<number>(5); // Default to LookUp 4-Frame
+
   const [photos, setPhotos] = useState<HTMLImageElement[]>([]);
   const [isCapturingSeries, setIsCapturingSeries] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -57,17 +63,14 @@ export default function Photobooth() {
   const [textColor, setTextColor] = useState('#2C3E50');
   const [fontStyle, setFontStyle] = useState('serif');
 
-  // Multi-Template Support
   const [customTemplateUrls, setCustomTemplateUrls] = useState<string[]>([]);
   const [activeCustomOverlayImg, setActiveCustomOverlayImg] = useState<HTMLImageElement | null>(
     null
   );
-  const [selectedTemplate, setSelectedTemplate] = useState<number>(5); // Default to LookUp 4-Frame
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
 
-  // Fetch Event Customizations
   useEffect(() => {
     let isMounted = true;
     const fetchEventData = async () => {
@@ -84,10 +87,6 @@ export default function Photobooth() {
         if (data.font_style) setFontStyle(data.font_style);
 
         const urls: string[] = data.custom_template_urls || [];
-        if (data.custom_template_url && !urls.includes(data.custom_template_url)) {
-          urls.unshift(data.custom_template_url);
-        }
-
         setCustomTemplateUrls(urls);
 
         if (urls.length > 0) {
@@ -119,7 +118,7 @@ export default function Photobooth() {
         .filter((device) => device.kind === 'videoinput')
         .map((device, index) => ({
           deviceId: device.deviceId,
-          label: device.label || `Lens ${index + 1}`,
+          label: device.label || `Camera ${index + 1}`,
         }));
 
       setAvailableCameras(videoDevices);
@@ -136,10 +135,7 @@ export default function Photobooth() {
 
     if (videoRef.current && videoRef.current.srcObject) {
       const activeStream = videoRef.current.srcObject as MediaStream;
-      activeStream.getTracks().forEach((track) => {
-        track.stop();
-        activeStream.removeTrack(track);
-      });
+      activeStream.getTracks().forEach((track) => track.stop());
       videoRef.current.srcObject = null;
     }
 
@@ -177,7 +173,6 @@ export default function Photobooth() {
     if (!videoRef.current) return null;
     const video = videoRef.current;
 
-    // Use 3:2 aspect ratio (1200x800) so photos fit nicely into landscape template frames
     const targetWidth = 1200;
     const targetHeight = 800;
     const targetAspect = targetWidth / targetHeight;
@@ -227,6 +222,7 @@ export default function Photobooth() {
   const requiredPhotoCount = selectedTemplate === 5 ? 4 : 6;
 
   const startBurstCapture = async () => {
+    setShowSetupModal(false);
     if (isCapturingSeries) return;
     setPhotos([]);
     setIsCapturingSeries(true);
@@ -235,11 +231,13 @@ export default function Photobooth() {
     const captured: HTMLImageElement[] = [];
 
     for (let i = 1; i <= requiredPhotoCount; i++) {
-      for (let cd = 3; cd > 0; cd--) {
-        setCountdown(cd);
-        await new Promise((res) => setTimeout(res, 1000));
+      if (useTimer) {
+        for (let cd = timerDuration; cd > 0; cd--) {
+          setCountdown(cd);
+          await new Promise((res) => setTimeout(res, 1000));
+        }
+        setCountdown(null);
       }
-      setCountdown(null);
 
       setFlashEffect(true);
       setTimeout(() => setFlashEffect(false), 150);
@@ -312,7 +310,7 @@ export default function Photobooth() {
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(' ');
 
-      const { error: createErr } = await supabase.from('events').upsert(
+      await supabase.from('events').upsert(
         [
           {
             event_name: defaultName,
@@ -326,12 +324,6 @@ export default function Photobooth() {
         ],
         { onConflict: 'event_slug' }
       );
-
-      if (createErr) {
-        alert(`Cannot create matching event row: ${createErr.message}`);
-        setIsUploading(false);
-        return;
-      }
     }
 
     canvasRef.current.toBlob(
@@ -360,7 +352,7 @@ export default function Photobooth() {
         const { data: publicData } = supabase.storage.from('event-photos').getPublicUrl(filePath);
         const publicUrl = publicData.publicUrl;
 
-        const { error: dbErr } = await supabase.from('event_photos').insert([
+        await supabase.from('event_photos').insert([
           {
             event_slug: cleanSlug,
             storage_path: filePath,
@@ -369,18 +361,8 @@ export default function Photobooth() {
           },
         ]);
 
-        if (dbErr) {
-          console.error('Database insert error:', dbErr);
-          alert(`Failed to record photo in database: ${dbErr.message}`);
-        } else {
-          setUploadedUrl(publicUrl);
-          confetti({
-            particleCount: 80,
-            spread: 60,
-            origin: { y: 0.7 },
-          });
-        }
-
+        setUploadedUrl(publicUrl);
+        confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 } });
         setIsUploading(false);
       },
       'image/jpeg',
@@ -417,6 +399,96 @@ export default function Photobooth() {
         )}
       </header>
 
+      {/* Pre-Shot Setup Overlay Modal */}
+      {showSetupModal && photos.length === 0 && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-2xl space-y-6">
+            <div className="text-center">
+              <h2 className="text-lg font-black text-white flex items-center justify-center gap-2">
+                <Settings className="w-5 h-5 text-red-500" /> Photobooth Options
+              </h2>
+              <p className="text-xs text-gray-400 mt-1">Configure your session before shooting</p>
+            </div>
+
+            {/* Layout Selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-red-500" /> Select Layout
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 5, name: 'LookUp (4 Shots)', desc: 'Stacked Vertical' },
+                  { id: 3, name: 'Polaroid (6 Shots)', desc: 'Classic Grid' },
+                  { id: 1, name: 'Dark Mesh (6 Shots)', desc: 'Vibrant Mesh' },
+                  { id: 2, name: 'Sunset (6 Shots)', desc: 'Warm Gradient' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTemplate(t.id)}
+                    className={`p-3 rounded-2xl border text-left transition ${
+                      selectedTemplate === t.id
+                        ? 'bg-red-950/60 border-red-500 text-white'
+                        : 'bg-black/50 border-gray-800 text-gray-400 hover:bg-gray-800'
+                    }`}
+                  >
+                    <p className="text-xs font-bold text-white">{t.name}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{t.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Timer Toggle */}
+            <div className="space-y-3 bg-black/40 border border-gray-800 p-4 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-200 flex items-center gap-1.5">
+                  <Timer className="w-3.5 h-3.5 text-red-500" /> Countdown Timer
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setUseTimer(!useTimer)}
+                  className={`w-11 h-6 rounded-full transition-colors p-0.5 ${
+                    useTimer ? 'bg-red-600' : 'bg-gray-800'
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      useTimer ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {useTimer && (
+                <div className="flex gap-2 pt-2 border-t border-gray-800/80">
+                  {[2, 3, 5].map((sec) => (
+                    <button
+                      key={sec}
+                      onClick={() => setTimerDuration(sec)}
+                      className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition ${
+                        timerDuration === sec
+                          ? 'bg-red-600 border-red-500 text-white'
+                          : 'bg-gray-900 border-gray-800 text-gray-400'
+                      }`}
+                    >
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Start Button */}
+            <button
+              onClick={startBurstCapture}
+              className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 active:scale-95 font-bold text-sm rounded-2xl shadow-xl flex items-center justify-center gap-2 text-white border border-red-500/30"
+            >
+              <Play className="w-4 h-4 fill-current" /> Start Photo Session
+            </button>
+          </div>
+        </div>
+      )}
+
       {photos.length < requiredPhotoCount ? (
         <main className="w-full flex-1 flex flex-col justify-center items-center gap-4 my-auto">
           <div className="relative w-full aspect-[3/4] max-w-[320px] bg-black rounded-3xl overflow-hidden border-2 border-gray-800/80 shadow-2xl flex items-center justify-center">
@@ -451,16 +523,25 @@ export default function Photobooth() {
             )}
           </div>
 
-          <div className="w-full max-w-[320px]">
+          <div className="w-full max-w-[320px] flex gap-2">
+            <button
+              onClick={() => setShowSetupModal(true)}
+              disabled={isCapturingSeries}
+              className="p-4 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-2xl text-gray-300"
+              title="Options"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+
             <button
               onClick={startBurstCapture}
               disabled={isCapturingSeries || !!cameraError}
-              className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 active:scale-95 disabled:opacity-50 font-bold text-sm rounded-2xl shadow-xl flex items-center justify-center gap-2 text-white border border-red-500/30 transition-transform"
+              className="flex-1 py-4 bg-gradient-to-r from-red-600 to-red-700 active:scale-95 disabled:opacity-50 font-bold text-sm rounded-2xl shadow-xl flex items-center justify-center gap-2 text-white border border-red-500/30 transition-transform"
             >
               <Camera className="w-5 h-5" />
               {isCapturingSeries
                 ? `Taking Shot ${photos.length + 1}...`
-                : `Snap ${requiredPhotoCount} Photobooth Shots`}
+                : `Snap ${requiredPhotoCount} Shots`}
             </button>
           </div>
         </main>
@@ -470,14 +551,14 @@ export default function Photobooth() {
             <h2 className="text-base font-bold flex items-center justify-center gap-1.5 text-green-400">
               <Sparkles className="w-4 h-4" /> Photos Ready!
             </h2>
-            <p className="text-[11px] text-gray-400">Select a frame style</p>
+            <p className="text-[11px] text-gray-400">Select frame layout</p>
           </div>
 
           <div className="grid grid-cols-4 gap-1.5 w-full">
             {[
               { id: 5, name: 'LookUp' },
               { id: 3, name: 'Polaroid' },
-              { id: 1, name: 'Classic' },
+              { id: 1, name: 'Mesh' },
               { id: 2, name: 'Sunset' },
             ].map((t) => (
               <button
@@ -494,36 +575,6 @@ export default function Photobooth() {
               </button>
             ))}
           </div>
-
-          {/* Custom Templates Carousel Selector */}
-          {customTemplateUrls.length > 0 && (
-            <div className="w-full flex flex-col gap-1">
-              <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
-                Custom PNG Frames:
-              </p>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
-                {customTemplateUrls.map((url, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      loadCustomOverlay(url);
-                    }}
-                    className={`shrink-0 w-12 h-16 rounded-lg overflow-hidden border transition bg-black ${
-                      selectedTemplate === 4 && activeCustomOverlayImg?.src === url
-                        ? 'border-red-500 ring-2 ring-red-500/50'
-                        : 'border-gray-800 opacity-60 hover:opacity-100'
-                    }`}
-                  >
-                    <img
-                      src={url}
-                      alt={`Frame ${i + 1}`}
-                      className="w-full h-full object-contain p-0.5"
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div className="w-full max-h-[44vh] overflow-y-auto no-scrollbar rounded-2xl border border-gray-800 bg-black p-2 shadow-2xl">
             <canvas
@@ -564,7 +615,7 @@ export default function Photobooth() {
                   onClick={() => navigator.clipboard.writeText(uploadedUrl)}
                   className="w-full py-2 bg-gray-900 active:scale-95 text-[11px] text-gray-300 font-medium rounded-lg flex items-center justify-center gap-1.5 border border-gray-800"
                 >
-                  <Share2 className="w-3 h-3" /> Copy Direct Image Link
+                  <Share2 className="w-3 h-3" /> Copy Direct Link
                 </button>
               </div>
             )}
@@ -573,6 +624,7 @@ export default function Photobooth() {
               onClick={() => {
                 setPhotos([]);
                 setUploadedUrl(null);
+                setShowSetupModal(true);
               }}
               disabled={isUploading}
               className="w-full py-2.5 bg-gray-900/60 text-gray-400 font-semibold text-[11px] rounded-xl border border-gray-800/80 active:scale-95 flex items-center justify-center gap-1.5"
