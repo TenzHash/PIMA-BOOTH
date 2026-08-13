@@ -403,20 +403,40 @@ export default function AdminDashboard() {
     setSavingText(false);
   };
 
-  const handleDeleteEvent = async (eventId: string, eventNameStr: string) => {
-    if (!window.confirm(`Delete "${eventNameStr}" and all its photos?`)) return;
+const handleDeleteEvent = async (eventId: string, eventNameStr: string) => {
+  if (!window.confirm(`Are you sure you want to delete "${eventNameStr}"? This will also remove all associated photos.`)) {
+    return;
+  }
 
-    const { error } = await supabase.from('events').delete().eq('id', eventId);
+  // 1. Delete from Supabase Database
+  const { error } = await supabase
+    .from('events')
+    .delete()
+    .eq('id', eventId);
 
-    if (error) {
-      alert(`Failed to delete event: ${error.message}`);
-    } else {
-      const remaining = events.filter((ev) => ev.id !== eventId);
-      setEvents(remaining);
-      if (remaining.length > 0) selectEvent(remaining[0]);
-      else setSelectedEvent(null);
+  if (error) {
+    alert(`Failed to delete event from database: ${error.message}`);
+    return;
+  }
+
+  // 2. Update local state only after DB deletion succeeds
+  setEvents((prevEvents) => {
+    const updatedList = prevEvents.filter((ev) => ev.id !== eventId);
+    
+    // If deleted event was currently selected, select the first available or clear
+    if (selectedEvent?.id === eventId) {
+      if (updatedList.length > 0) {
+        selectEvent(updatedList[0]);
+      } else {
+        setSelectedEvent(null);
+        setEventPhotos([]);
+      }
     }
-  };
+    return updatedList;
+  });
+
+  alert(`Event "${eventNameStr}" successfully deleted.`);
+};
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 md:p-8 max-w-7xl mx-auto antialiased">
