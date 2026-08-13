@@ -287,7 +287,6 @@ export default function Photobooth() {
     };
   }, [isCameraActive, startCamera]);
 
-  // Capture full raw uncropped camera stream
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
@@ -646,28 +645,53 @@ export default function Photobooth() {
                 <p className="text-xs font-medium leading-relaxed">{cameraError}</p>
               </div>
             ) : (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className={`w-full h-full object-cover ${isFrontCamera() ? '-scale-x-100' : ''}`}
-              />
+              <>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`w-full h-full object-cover ${isFrontCamera() ? '-scale-x-100' : ''}`}
+                />
+
+                {/* Framing Guidelines Overlay */}
+                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between p-3">
+                  <div className="w-full h-8 bg-black/40 backdrop-blur-[2px] border-b border-dashed border-white/30 flex items-center justify-center">
+                    <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider">
+                      Position Face Here
+                    </span>
+                  </div>
+
+                  {/* Corner Target Markers */}
+                  <div className="w-full flex-1 border-2 border-dashed border-white/40 rounded-xl my-2 relative">
+                    <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-red-500" />
+                    <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-red-500" />
+                    <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-red-500" />
+                    <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-red-500" />
+                  </div>
+
+                  <div className="w-full h-8 bg-black/40 backdrop-blur-[2px] border-t border-dashed border-white/30 flex items-center justify-center">
+                    <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider">
+                      Crop Safety Zone
+                    </span>
+                  </div>
+                </div>
+              </>
             )}
 
-            <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold border border-white/10 text-white shadow-lg">
+            <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold border border-white/10 text-white shadow-lg z-10">
               {photos.length} / {requiredPhotoCount} Shots
             </div>
 
             {countdown !== null && (
-              <div className="absolute top-3 left-3 bg-red-600/90 text-white backdrop-blur-md px-3 py-1 rounded-full text-xs font-black border border-red-400/40 shadow-xl flex items-center gap-1.5 animate-pulse">
+              <div className="absolute top-3 left-3 bg-red-600/90 text-white backdrop-blur-md px-3 py-1 rounded-full text-xs font-black border border-red-400/40 shadow-xl flex items-center gap-1.5 animate-pulse z-10">
                 <Timer className="w-3.5 h-3.5" />
                 <span>SNAP IN {countdown}...</span>
               </div>
             )}
 
             {flashEffect && (
-              <div className="absolute inset-0 bg-white opacity-90 transition-opacity duration-150" />
+              <div className="absolute inset-0 bg-white opacity-90 transition-opacity duration-150 z-20" />
             )}
           </div>
 
