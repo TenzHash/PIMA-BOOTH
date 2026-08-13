@@ -287,25 +287,55 @@ export default function Photobooth() {
     };
   }, [isCameraActive, startCamera]);
 
+  // Precise 3:2 Snapshot calculation matching the viewfinder mask
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
 
+    const targetWidth = 1200;
+    const targetHeight = 800; // 3:2 Aspect Ratio Frame Slot
+    const targetAspect = targetWidth / targetHeight;
+
     const videoWidth = video.videoWidth || 1280;
     const videoHeight = video.videoHeight || 720;
+    const videoAspect = videoWidth / videoHeight;
+
+    let sourceX = 0,
+      sourceY = 0,
+      sourceWidth = videoWidth,
+      sourceHeight = videoHeight;
+
+    if (videoAspect > targetAspect) {
+      sourceWidth = videoHeight * targetAspect;
+      sourceX = (videoWidth - sourceWidth) / 2;
+    } else {
+      sourceHeight = videoWidth / targetAspect;
+      // Position crop area at top-center (aligns with red guide box)
+      sourceY = (videoHeight - sourceHeight) * 0.12;
+    }
 
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = videoWidth;
-    tempCanvas.height = videoHeight;
+    tempCanvas.width = targetWidth;
+    tempCanvas.height = targetHeight;
     const ctx = tempCanvas.getContext('2d');
     if (!ctx) return null;
 
     if (isFrontCamera()) {
-      ctx.translate(videoWidth, 0);
+      ctx.translate(targetWidth, 0);
       ctx.scale(-1, 1);
     }
 
-    ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
+    ctx.drawImage(
+      video,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      targetWidth,
+      targetHeight
+    );
 
     const img = new Image();
     img.src = tempCanvas.toDataURL('image/jpeg', 0.95);
@@ -654,25 +684,28 @@ export default function Photobooth() {
                   className={`w-full h-full object-cover ${isFrontCamera() ? '-scale-x-100' : ''}`}
                 />
 
-                {/* Framing Guidelines Overlay */}
-                <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-between p-3">
-                  <div className="w-full h-8 bg-black/40 backdrop-blur-[2px] border-b border-dashed border-white/30 flex items-center justify-center">
-                    <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider">
-                      Position Face Here
+                {/* Real-time 3:2 Aspect Ratio Crop Guidelines Overlay */}
+                <div className="absolute inset-0 pointer-events-none flex flex-col justify-between">
+                  <div className="w-full h-[12%] bg-black/60 backdrop-blur-[1px] border-b border-white/20 flex items-center justify-center">
+                    <span className="text-[9px] font-bold text-gray-300 uppercase tracking-wider">
+                      Cropped Area
                     </span>
                   </div>
 
-                  {/* Corner Target Markers */}
-                  <div className="w-full flex-1 border-2 border-dashed border-white/40 rounded-xl my-2 relative">
+                  <div className="w-full aspect-[3/2] border-2 border-dashed border-red-500/80 relative my-auto shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]">
                     <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-red-500" />
                     <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-red-500" />
                     <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-red-500" />
                     <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-red-500" />
+
+                    <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-black text-white/80 uppercase tracking-widest bg-black/40 px-2 py-0.5 rounded-full border border-white/10">
+                      Photo Zone
+                    </span>
                   </div>
 
-                  <div className="w-full h-8 bg-black/40 backdrop-blur-[2px] border-t border-dashed border-white/30 flex items-center justify-center">
-                    <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider">
-                      Crop Safety Zone
+                  <div className="w-full h-[22%] bg-black/60 backdrop-blur-[1px] border-t border-white/20 flex items-center justify-center">
+                    <span className="text-[9px] font-bold text-gray-300 uppercase tracking-wider">
+                      Cropped Area
                     </span>
                   </div>
                 </div>
