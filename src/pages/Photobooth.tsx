@@ -287,55 +287,26 @@ export default function Photobooth() {
     };
   }, [isCameraActive, startCamera]);
 
-  // Capture frame with dynamic mobile 9:16 aspect ratio support
+  // Capture full raw uncropped camera stream
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
 
     const videoWidth = video.videoWidth || 1280;
     const videoHeight = video.videoHeight || 720;
-    const isPortraitStream = videoHeight > videoWidth;
-
-    const targetWidth = 1200;
-    const targetHeight = isPortraitStream ? 1600 : 800;
-    const targetAspect = targetWidth / targetHeight;
 
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = targetWidth;
-    tempCanvas.height = targetHeight;
+    tempCanvas.width = videoWidth;
+    tempCanvas.height = videoHeight;
     const ctx = tempCanvas.getContext('2d');
     if (!ctx) return null;
 
-    const videoAspect = videoWidth / videoHeight;
-    let sourceX = 0,
-      sourceY = 0,
-      sourceWidth = videoWidth,
-      sourceHeight = videoHeight;
-
-    if (videoAspect > targetAspect) {
-      sourceWidth = videoHeight * targetAspect;
-      sourceX = (videoWidth - sourceWidth) / 2;
-    } else {
-      sourceHeight = videoWidth / targetAspect;
-      sourceY = (videoHeight - sourceHeight) * 0.1;
-    }
-
     if (isFrontCamera()) {
-      ctx.translate(targetWidth, 0);
+      ctx.translate(videoWidth, 0);
       ctx.scale(-1, 1);
     }
 
-    ctx.drawImage(
-      video,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
-      0,
-      0,
-      targetWidth,
-      targetHeight
-    );
+    ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
 
     const img = new Image();
     img.src = tempCanvas.toDataURL('image/jpeg', 0.95);

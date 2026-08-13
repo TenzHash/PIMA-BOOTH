@@ -12,7 +12,7 @@ export interface TemplateOptions {
   customOverlayImg?: HTMLImageElement | null;
 }
 
-// Clean Cover Scaling (No Black Letterboxing, Top-Weighted for Faces)
+// Clean Cover Scaling (No Black Letterboxing, Evenly Centered Cover)
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -32,14 +32,13 @@ function drawImageCover(
   let offsetY = 0;
 
   if (imgAspect > targetAspect) {
-    // Image is wider than frame: crop sides equally
+    // Landscape feed: crop sides evenly
     renderW = h * imgAspect;
     offsetX = (w - renderW) / 2;
   } else {
-    // Image is taller than frame (mobile 9:16 video): crop top/bottom
+    // Mobile portrait feed (9:16): crop top & bottom evenly
     renderH = w / imgAspect;
-    // Align 15% from the top so hair, head, and face remain in frame
-    offsetY = (h - renderH) * 0.15;
+    offsetY = (h - renderH) / 2;
   }
 
   ctx.save();
@@ -48,7 +47,7 @@ function drawImageCover(
   ctx.clip();
   ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
 
-  // Subtle vignette gradient for photo depth
+  // Subtle vignette depth
   const grad = ctx.createRadialGradient(
     x + w / 2, y + h / 2, Math.min(w, h) * 0.3,
     x + w / 2, y + h / 2, Math.max(w, h) * 0.75
