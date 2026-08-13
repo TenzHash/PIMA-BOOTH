@@ -12,7 +12,7 @@ export interface TemplateOptions {
   customOverlayImg?: HTMLImageElement | null;
 }
 
-// Smart scaling helper handling both mobile (portrait) and desktop (landscape) streams
+// Clean Cover Scaling (No Black Letterboxing, Top-Weighted for Faces)
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -31,22 +31,15 @@ function drawImageCover(
   let offsetX = 0;
   let offsetY = 0;
 
-  // Handle tall portrait mobile video streams (contain full height to prevent cutting faces)
-  if (imgAspect < 0.8) {
-    renderH = h;
-    renderW = h * imgAspect;
-    offsetX = (w - renderW) / 2;
-
-    ctx.save();
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(x, y, w, h);
-    ctx.restore();
-  } else if (imgAspect > targetAspect) {
+  if (imgAspect > targetAspect) {
+    // Image is wider than frame: crop sides equally
     renderW = h * imgAspect;
     offsetX = (w - renderW) / 2;
   } else {
+    // Image is taller than frame (mobile 9:16 video): crop top/bottom
     renderH = w / imgAspect;
-    offsetY = (h - renderH) * 0.1;
+    // Align 15% from the top so hair, head, and face remain in frame
+    offsetY = (h - renderH) * 0.15;
   }
 
   ctx.save();
@@ -55,7 +48,7 @@ function drawImageCover(
   ctx.clip();
   ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
 
-  // Subtle depth vignette
+  // Subtle vignette gradient for photo depth
   const grad = ctx.createRadialGradient(
     x + w / 2, y + h / 2, Math.min(w, h) * 0.3,
     x + w / 2, y + h / 2, Math.max(w, h) * 0.75
@@ -319,7 +312,7 @@ export function renderTemplate3({
   drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Template 5: 4-Frame "lookUp" Strip
+// Template 5: 4-Frame "lookUp" Photo Strip
 export function renderTemplate5({
   ctx,
   images,
@@ -378,7 +371,7 @@ export function renderTemplate5({
   drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Custom PNG Overlay Frame Renderer
+// Custom PNG Frame Overlay Renderer
 export function renderCustomPNGTemplate({
   ctx,
   images,
