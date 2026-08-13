@@ -687,12 +687,14 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Template Selector Tabs */}
-                <div className="grid grid-cols-4 gap-2 w-full mb-6">
+                {/* Template Selector Tabs */}
+                <div className="grid grid-cols-5 gap-2 w-full mb-6">
                   {[
                     { id: 5, name: '4-Frame' },
                     { id: 3, name: 'Polaroid' },
                     { id: 1, name: 'Classic Dark' },
                     { id: 2, name: 'Sunset' },
+                    { id: 4, name: 'Custom PNG' }, // Added Custom Template ID 4 here
                   ].map((t) => (
                     <button
                       key={t.id}
