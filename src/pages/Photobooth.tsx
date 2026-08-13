@@ -618,7 +618,7 @@ export default function Photobooth() {
                   { id: 3, name: 'Polaroid (6 Shots)' },
                   { id: 1, name: 'Dark Mesh (6 Shots)' },
                   { id: 2, name: 'Sunset (6 Shots)' },
-                  customTemplateUrls.length > 0 ? [{ id: 4, name: 'Custom Overlay' }] : [],
+                  ...(customTemplateUrls.length > 0 ? [{ id: 4, name: 'Custom Overlay' }] : []),
                 ].map((t) => (
                   <button
                     key={t.id}
