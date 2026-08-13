@@ -12,7 +12,7 @@ export interface TemplateOptions {
   customOverlayImg?: HTMLImageElement | null;
 }
 
-// Draw image into template slot with exact aspect-ratio matching
+// Standard cover scale for grid templates
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -36,7 +36,6 @@ function drawImageCover(
     offsetX = (w - renderW) / 2;
   } else {
     renderH = w / imgAspect;
-    // Keep portrait framing top-aligned to match the live viewfinder
     offsetY = targetAspect > 1.3 ? 0 : 0;
   }
 
@@ -55,6 +54,47 @@ function drawImageCover(
   ctx.fillStyle = grad;
   ctx.fillRect(x, y, w, h);
 
+  ctx.restore();
+}
+
+// Contain scale helper for custom template slots to maintain ratios without cutting
+function drawImageContain(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+) {
+  if (!img || !img.width || !img.height) return;
+
+  const imgAspect = img.width / img.height;
+  const targetAspect = w / h;
+
+  let renderW = w;
+  let renderH = h;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  if (imgAspect > targetAspect) {
+    renderW = w;
+    renderH = w / imgAspect;
+    offsetY = (h - renderH) / 2;
+  } else {
+    renderH = h;
+    renderW = h * imgAspect;
+    offsetX = (w - renderW) / 2;
+  }
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(x, y, w, h);
+
+  ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
   ctx.restore();
 }
 
@@ -368,7 +408,7 @@ export function renderTemplate5({
   drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Custom PNG Frame Overlay Renderer
+// Custom PNG Frame Overlay Renderer (Punches clean holes in the overlay center so photos show through properly)
 export function renderCustomPNGTemplate({
   ctx,
   images,
@@ -377,27 +417,65 @@ export function renderCustomPNGTemplate({
   customOverlayImg,
   stickerStyle = 'none',
 }: TemplateOptions) {
+  // 1. Base white background fill
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
 
-  const sideMargin = 50;
-  const topMargin = 50;
-  const gap = 16;
+  // 2. Define the exact slot positions matching your template window frames
+  const sideMargin = 120; 
+  const topMargin = 180;  
+  const bottomMargin = 220; 
+  const gapX = 24;
+  const gapY = 24;
   const rows = 3;
   const cols = 2;
-  const cellW = (width - sideMargin * 2 - gap) / cols;
-  const cellH = (height - topMargin - 200 - gap * (rows - 1)) / rows;
 
+  const totalW = width - sideMargin * 2;
+  const totalH = height - topMargin - bottomMargin;
+  const cellW = (totalW - gapX * (cols - 1)) / cols;
+  const cellH = (totalH - gapY * (rows - 1)) / rows;
+
+  // 3. Draw captured photos FIRST in the background slots
   images.slice(0, 6).forEach((img, i) => {
     const c = i % cols;
     const r = Math.floor(i / cols);
-    const x = sideMargin + c * (cellW + gap);
-    const y = topMargin + r * (cellH + gap);
-    drawImageCover(ctx, img, x, y, cellW, cellH);
+    const x = sideMargin + c * (cellW + gapX);
+    const y = topMargin + r * (cellH + gapY);
+    
+    drawImageContain(ctx, img, x, y, cellW, cellH);
   });
 
+  // 4. Draw custom frame overlay on top, but punch out the slot rectangles first 
+  // so any solid white/opaque background in the middle of your PNG frame becomes transparent
   if (customOverlayImg) {
-    ctx.drawImage(customOverlayImg, 0, 0, width, height);
+    ctx.save();
+    
+    // Create a temporary canvas/layer to handle the frame cutouts cleanly
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    if (tempCtx) {
+      tempCtx.drawImage(customOverlayImg, 0, 0, width, height);
+      
+      // Punch out the photo slots from the overlay image
+      tempCtx.globalCompositeOperation = 'destination-out';
+      images.slice(0, 6).forEach((_, i) => {
+        const c = i % cols;
+        const r = Math.floor(i / cols);
+        const x = sideMargin + c * (cellW + gapX);
+        const y = topMargin + r * (cellH + gapY);
+        tempCtx.fillRect(x, y, cellW, cellH);
+      });
+      
+      // Draw the modified frame overlay with transparent windows on top of the photos
+      ctx.drawImage(tempCanvas, 0, 0);
+    } else {
+      ctx.drawImage(customOverlayImg, 0, 0, width, height);
+    }
+    
+    ctx.restore();
   }
 
   drawStickers(ctx, width, height, stickerStyle);
