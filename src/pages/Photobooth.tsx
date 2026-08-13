@@ -115,6 +115,15 @@ export default function Photobooth() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
 
+  // Detect whether current selected camera lens is Front vs Back camera
+  const isFrontCamera = useCallback(() => {
+    if (!selectedDeviceId) return true;
+    const activeDevice = availableCameras.find((c) => c.deviceId === selectedDeviceId);
+    if (!activeDevice) return true;
+    const label = activeDevice.label.toLowerCase();
+    return !label.includes('back') && !label.includes('environment') && !label.includes('rear');
+  }, [selectedDeviceId, availableCameras]);
+
   // Generate placeholder images for modal setup preview
   useEffect(() => {
     const imgs: HTMLImageElement[] = [];
@@ -268,10 +277,10 @@ export default function Photobooth() {
     }
   }, [selectedDeviceId, fetchAvailableCameras]);
 
-  // Restart camera stream whenever returning to camera view
   const requiredPhotoCount = selectedTemplate === 5 ? 4 : 6;
   const isCameraActive = photos.length < requiredPhotoCount;
 
+  // Restart camera stream when returning to viewfinder
   useEffect(() => {
     if (isCameraActive) {
       startCamera();
@@ -285,6 +294,7 @@ export default function Photobooth() {
     };
   }, [isCameraActive, startCamera]);
 
+  // Top-weighted frame snapshot (un-mirrors back cameras automatically)
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
@@ -313,11 +323,16 @@ export default function Photobooth() {
       sourceX = (videoWidth - sourceWidth) / 2;
     } else {
       sourceHeight = videoWidth / targetAspect;
+      // Top-align framing so faces are never cut off
       sourceY = (videoHeight - sourceHeight) * 0.1;
     }
 
-    ctx.translate(targetWidth, 0);
-    ctx.scale(-1, 1);
+    // Un-mirror back camera, only mirror selfie front camera
+    if (isFrontCamera()) {
+      ctx.translate(targetWidth, 0);
+      ctx.scale(-1, 1);
+    }
+
     ctx.drawImage(
       video,
       sourceX,
@@ -385,7 +400,7 @@ export default function Photobooth() {
     setIsCapturingSeries(false);
   };
 
-  // Promise-based Render Final Canvas Output to prevent missing frames
+  // Promise-based Canvas Render to guarantee no missing 4th/6th frames
   useEffect(() => {
     const targetCount = selectedTemplate === 5 ? 4 : 6;
     if (photos.length < targetCount || !canvasRef.current) return;
@@ -680,7 +695,7 @@ export default function Photobooth() {
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover -scale-x-100"
+                className={`w-full h-full object-cover ${isFrontCamera() ? '-scale-x-100' : ''}`}
               />
             )}
 

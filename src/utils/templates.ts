@@ -12,6 +12,7 @@ export interface TemplateOptions {
   customOverlayImg?: HTMLImageElement | null;
 }
 
+// Top-weighted aspect-fit helper to preserve faces across all templates
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -35,8 +36,8 @@ function drawImageCover(
     offsetX = (w - renderW) / 2;
   } else {
     renderH = w / imgAspect;
-    // Align toward top (15% offset) instead of center so heads are never cut off
-    offsetY = (h - renderH) * 0.15;
+    // Align toward top (12% offset) so heads/faces stay fully visible
+    offsetY = (h - renderH) * 0.12;
   }
 
   ctx.save();
@@ -45,13 +46,13 @@ function drawImageCover(
   ctx.clip();
   ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
 
-  // Subtle vignette gradient for depth
+  // Subtle vignette depth gradient
   const grad = ctx.createRadialGradient(
     x + w / 2, y + h / 2, Math.min(w, h) * 0.3,
     x + w / 2, y + h / 2, Math.max(w, h) * 0.75
   );
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0.12)');
   ctx.fillStyle = grad;
   ctx.fillRect(x, y, w, h);
 
@@ -70,7 +71,7 @@ function getFontFamily(style?: string): string {
   }
 }
 
-// Background Gradient Generator
+// Universal Background Gradient Generator
 function applyCanvasGradient(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -111,7 +112,7 @@ function applyCanvasGradient(
   ctx.fillRect(0, 0, width, height);
 }
 
-// Optional Decorative Stickers Render
+// Decorative Sticker Overlays
 function drawStickers(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -125,16 +126,16 @@ function drawStickers(
 
   if (stickerStyle === 'stars') {
     ctx.font = '36px sans-serif';
-    ctx.fillText('✨', 90, 80);
-    ctx.fillText('⭐', width - 90, 80);
-    ctx.fillText('🌟', 80, height - 90);
-    ctx.fillText('✨', width - 80, height - 90);
+    ctx.fillText('✨', 100, 80);
+    ctx.fillText('⭐', width - 100, 80);
+    ctx.fillText('🌟', 90, height - 90);
+    ctx.fillText('✨', width - 90, height - 90);
   } else if (stickerStyle === 'hearts') {
     ctx.font = '36px sans-serif';
-    ctx.fillText('💖', 90, 80);
-    ctx.fillText('💗', width - 90, 80);
-    ctx.fillText('💕', 80, height - 90);
-    ctx.fillText('❤️', width - 80, height - 90);
+    ctx.fillText('💖', 100, 80);
+    ctx.fillText('💗', width - 100, 80);
+    ctx.fillText('💕', 90, height - 90);
+    ctx.fillText('❤️', width - 90, height - 90);
   } else if (stickerStyle === 'sparkles') {
     ctx.font = '32px sans-serif';
     ctx.fillText('⚡', 100, 70);
@@ -144,20 +145,20 @@ function drawStickers(
   } else if (stickerStyle === 'vintage-badge') {
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#DC2626';
-    ctx.fillText('● OFFICIAL MEMORY ●', width / 2, 40);
+    ctx.fillText('● OFFICIAL MEMORY ●', width / 2, 45);
   }
 
   ctx.restore();
 }
 
-// Template 1: Classic Grid
+// Template 1: Classic Dark Grid (6 Shots)
 export function renderTemplate1({
   ctx,
   images,
   width,
   height,
-  eventName = 'EVENT NAME',
-  subtitleText = 'Official Event Memory',
+  eventName = 'PIMA ALBAY',
+  subtitleText = 'WELCOME PARTY 2026',
   textColor = '#FFFFFF',
   fontStyle = 'sans-serif',
   gradientTheme = 'dark',
@@ -166,10 +167,10 @@ export function renderTemplate1({
   applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
-  const margin = 40;
+  const sideMargin = 80;
   const topHeader = 120;
   const footerHeight = 180;
-  const gridW = width - margin * 2;
+  const gridW = width - sideMargin * 2;
   const gridH = height - topHeader - footerHeight;
 
   const gap = 20;
@@ -186,7 +187,7 @@ export function renderTemplate1({
   images.slice(0, 6).forEach((img, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    const x = margin + col * (cellW + gap);
+    const x = sideMargin + col * (cellW + gap);
     const y = topHeader + row * (cellH + gap);
 
     ctx.fillStyle = '#FFFFFF';
@@ -201,14 +202,14 @@ export function renderTemplate1({
   drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Template 2: Sunset / Vibrant Theme
+// Template 2: Vibrant Sunset Grid (6 Shots)
 export function renderTemplate2({
   ctx,
   images,
   width,
   height,
-  eventName = 'EVENT NAME',
-  subtitleText = 'Official Event Memory',
+  eventName = 'PIMA ALBAY',
+  subtitleText = 'WELCOME PARTY 2026',
   textColor = '#1E293B',
   fontStyle = 'serif',
   gradientTheme = 'sunset',
@@ -217,20 +218,20 @@ export function renderTemplate2({
   applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
-  const margin = 45;
-  const startY = 60;
+  const sideMargin = 80;
+  const startY = 70;
   const availableH = height - startY - 180;
 
   const cols = 2;
   const rows = 3;
   const gap = 24;
-  const cellW = (width - margin * 2 - gap) / cols;
+  const cellW = (width - sideMargin * 2 - gap) / cols;
   const cellH = (availableH - gap * (rows - 1)) / rows;
 
   images.slice(0, 6).forEach((img, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    const x = margin + col * (cellW + gap);
+    const x = sideMargin + col * (cellW + gap);
     const y = startY + row * (cellH + gap);
 
     ctx.fillStyle = '#FFFFFF';
@@ -254,14 +255,14 @@ export function renderTemplate2({
   drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Template 3: Polaroid Frame
+// Template 3: Polaroid Classic Vertical Strip (6 Shots)
 export function renderTemplate3({
   ctx,
   images,
   width,
   height,
   eventName = 'PIMA ALBAY',
-  subtitleText = 'Official Event Memory',
+  subtitleText = 'WELCOME PARTY 2026',
   textColor = '#1E293B',
   fontStyle = 'serif',
   gradientTheme = 'pastel',
@@ -270,8 +271,8 @@ export function renderTemplate3({
   applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
-  const sideMargin = 60;
-  const topMargin = 60;
+  const sideMargin = 90;
+  const topMargin = 70;
   const bottomSpace = 220;
 
   const count = Math.min(images.length, 6);
@@ -311,8 +312,7 @@ export function renderTemplate3({
   drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Template 5: 4-Frame "lookUp" Vertical Layout
-// Template 5: Authentic Narrow 4-Frame "lookUp" Photo Strip
+// Template 5: 4-Frame "lookUp" Strip
 export function renderTemplate5({
   ctx,
   images,
@@ -325,62 +325,54 @@ export function renderTemplate5({
   gradientTheme = 'monochrome',
   stickerStyle = 'none',
 }: TemplateOptions) {
-  // Render background gradient
   applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
 
-  // Strip margins optimized for 1200x2400 high-res export
-  const sideMargin = 120; // Increased side margins to make frames visually narrower/authentic
-  const topMargin = 80;
-  const bottomSpace = 320; // Generous bottom area for logo & subtext
-  const gap = 30;
+  // Balanced strip margins
+  const sideMargin = 140;
+  const topMargin = 90;
+  const bottomSpace = 340;
+  const gap = 28;
 
   const availableW = width - sideMargin * 2;
   const availableH = height - topMargin - bottomSpace;
   const frameH = (availableH - gap * 3) / 4;
 
-  // 1. Draw 4 Photo Frames
   images.slice(0, 4).forEach((img, i) => {
     const y = topMargin + i * (frameH + gap);
 
-    // Outer frame border
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 5;
     ctx.strokeRect(sideMargin, y, availableW, frameH);
 
-    // Aspect-fit image drawing (aligned top-center to prevent head cropping)
     drawImageCover(ctx, img, sideMargin, y, availableW, frameH);
 
-    // Frame indicators: Left "▸ 1", Right "up ▲"
     ctx.fillStyle = '#000000';
-    ctx.font = `bold 24px ${font}`;
+    ctx.font = `bold 22px ${font}`;
     ctx.textAlign = 'right';
-    ctx.fillText(`▸ ${i + 1}`, sideMargin - 20, y + frameH / 2 + 8);
+    ctx.fillText(`▸ ${i + 1}`, sideMargin - 18, y + frameH / 2 + 8);
 
-    ctx.font = `bold 20px ${font}`;
+    ctx.font = `bold 18px ${font}`;
     ctx.textAlign = 'left';
-    ctx.fillText('up ▲', sideMargin + availableW + 20, y + frameH / 2 + 6);
+    ctx.fillText('up ▲', sideMargin + availableW + 18, y + frameH / 2 + 6);
   });
 
-  // 2. Bottom Branding / Typography
   const footerCenterY = height - 160;
 
   ctx.fillStyle = textColor || '#000000';
   ctx.textAlign = 'center';
 
-  // Main Event / Logo Title
-  ctx.font = `italic bold 72px ${font}`;
+  ctx.font = `italic bold 68px ${font}`;
   ctx.fillText(eventName, width / 2, footerCenterY);
 
-  // Subtitle / Hashtag Text
   ctx.font = `bold 22px ${font}`;
-  ctx.fillText(subtitleText.toUpperCase(), width / 2, footerCenterY + 50);
+  ctx.fillText(subtitleText.toUpperCase(), width / 2, footerCenterY + 48);
 
-  // Draw selected stickers/emoticons
   drawStickers(ctx, width, height, stickerStyle);
 }
 
+// Custom PNG Frame Overlay Renderer
 export function renderCustomPNGTemplate({
   ctx,
   images,
