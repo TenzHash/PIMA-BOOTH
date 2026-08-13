@@ -35,7 +35,8 @@ function drawImageCover(
     offsetX = (w - renderW) / 2;
   } else {
     renderH = w / imgAspect;
-    offsetY = (h - renderH) / 2;
+    // Align toward top (15% offset) instead of center so heads are never cut off
+    offsetY = (h - renderH) * 0.15;
   }
 
   ctx.save();
@@ -44,7 +45,7 @@ function drawImageCover(
   ctx.clip();
   ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
 
-  // Subtle vignette gradient
+  // Subtle vignette gradient for depth
   const grad = ctx.createRadialGradient(
     x + w / 2, y + h / 2, Math.min(w, h) * 0.3,
     x + w / 2, y + h / 2, Math.max(w, h) * 0.75

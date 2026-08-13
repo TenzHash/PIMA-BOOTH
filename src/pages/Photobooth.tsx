@@ -295,12 +295,14 @@ export default function Photobooth() {
       sourceWidth = videoWidth,
       sourceHeight = videoHeight;
 
+    // Inside takeSingleFrame() in Photobooth.tsx:
     if (videoAspect > targetAspect) {
       sourceWidth = videoHeight * targetAspect;
       sourceX = (videoWidth - sourceWidth) / 2;
     } else {
       sourceHeight = videoWidth / targetAspect;
-      sourceY = (videoHeight - sourceHeight) / 2;
+      // Capture higher up in the video frame to preserve heads
+      sourceY = (videoHeight - sourceHeight) * 0.1;
     }
 
     ctx.translate(targetWidth, 0);
