@@ -16,6 +16,10 @@ import {
   Eye,
   Check,
   RefreshCw,
+  Smile,
+  Layers,
+  Sliders,
+  X,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
@@ -26,16 +30,57 @@ import {
   renderCustomPNGTemplate,
 } from '../utils/templates';
 
+interface TemplateConfig {
+  title: string;
+  subtitle: string;
+  color: string;
+  font: string;
+  gradient: string;
+  sticker: string;
+}
+
 interface ExtendedEventSession {
   id: string;
   event_name: string;
   event_slug: string;
   custom_template_urls?: string[];
-  title_text?: string;
-  subtitle_text?: string;
-  text_color?: string;
-  font_style?: string;
+  template_configs?: Record<string, TemplateConfig>;
 }
+
+const defaultConfigMap: Record<string, TemplateConfig> = {
+  '1': {
+    title: 'PIMA ALBAY',
+    subtitle: 'Official Event Memory',
+    color: '#FFFFFF',
+    font: 'sans-serif',
+    gradient: 'dark',
+    sticker: 'none',
+  },
+  '2': {
+    title: 'PIMA ALBAY',
+    subtitle: 'Official Event Memory',
+    color: '#1E293B',
+    font: 'serif',
+    gradient: 'sunset',
+    sticker: 'none',
+  },
+  '3': {
+    title: 'PIMA ALBAY',
+    subtitle: 'Official Event Memory',
+    color: '#1E293B',
+    font: 'serif',
+    gradient: 'pastel',
+    sticker: 'none',
+  },
+  '5': {
+    title: 'lookUp',
+    subtitle: 'PHOTOBOOTH',
+    color: '#000000',
+    font: 'sans-serif',
+    gradient: 'monochrome',
+    sticker: 'none',
+  },
+};
 
 export default function AdminDashboard() {
   const [events, setEvents] = useState<ExtendedEventSession[]>([]);
@@ -48,15 +93,14 @@ export default function AdminDashboard() {
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Editable Template Text & Style States
-  const [editTitle, setEditTitle] = useState('');
-  const [editSubtitle, setEditSubtitle] = useState('');
-  const [editColor, setEditColor] = useState('#2C3E50');
-  const [editFont, setEditFont] = useState('serif');
-  const [previewTemplateId, setPreviewTemplateId] = useState<number>(5);
+  // Per-Template Customization Map & Modal State
+  const [templateConfigs, setTemplateConfigs] =
+    useState<Record<string, TemplateConfig>>(defaultConfigMap);
+  const [activeTemplateId, setActiveTemplateId] = useState<number>(5);
+  const [showCustomizeModal, setShowCustomizeModal] = useState(false);
   const [savingText, setSavingText] = useState(false);
 
-  // Dedicated Multiple Templates State
+  // Custom PNG Templates Management
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [uploadingTemplate, setUploadingTemplate] = useState(false);
   const [selectedCustomTemplateUrl, setSelectedCustomTemplateUrl] = useState<string | null>(null);
@@ -64,6 +108,7 @@ export default function AdminDashboard() {
 
   // Live Canvas Preview Reference & Dummy Images
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const modalCanvasRef = useRef<HTMLCanvasElement>(null);
   const [dummyImages, setDummyImages] = useState<HTMLImageElement[]>([]);
 
   // Generate dummy images for live preview
@@ -100,16 +145,16 @@ export default function AdminDashboard() {
       img.src = selectedCustomTemplateUrl;
       img.onload = () => {
         setLoadedCustomOverlay(img);
-        setPreviewTemplateId(4);
+        setActiveTemplateId(4);
       };
       img.onerror = () => setLoadedCustomOverlay(null);
     } else {
       setLoadedCustomOverlay(null);
-      if (previewTemplateId === 4) setPreviewTemplateId(5);
+      if (activeTemplateId === 4) setActiveTemplateId(5);
     }
   }, [selectedCustomTemplateUrl]);
 
-  // Direct database fetch for photos matching the active event slug
+  // Fetch photos for the selected event
   const fetchPhotosForEvent = useCallback(async (slug: string) => {
     setLoadingPhotos(true);
     const cleanSlug = slug
@@ -123,34 +168,28 @@ export default function AdminDashboard() {
       .eq('event_slug', cleanSlug)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching event photos:', error);
-      setEventPhotos([]);
-    } else if (data) {
+    if (!error && data) {
       setEventPhotos(data);
+    } else {
+      setEventPhotos([]);
     }
     setLoadingPhotos(false);
   }, []);
 
-  // Fetch initial events
   useEffect(() => {
     fetchEvents();
   }, []);
 
-  // Auto-fetch photos and attach real-time channel when active event changes
+  // Real-time photos updates
   useEffect(() => {
     if (selectedEvent?.event_slug) {
       fetchPhotosForEvent(selectedEvent.event_slug);
 
       const channel = supabase
-        .channel(`realtime_photos_${selectedEvent.event_slug}`)
+        .channel(`realtime_admin_photos_${selectedEvent.event_slug}`)
         .on(
           'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'event_photos',
-          },
+          { event: 'INSERT', schema: 'public', table: 'event_photos' },
           (payload) => {
             const newPhoto = payload.new as any;
             const currentCleanSlug = selectedEvent.event_slug
@@ -170,42 +209,47 @@ export default function AdminDashboard() {
     }
   }, [selectedEvent, fetchPhotosForEvent]);
 
-  const renderLivePreview = useCallback(() => {
-    if (!previewCanvasRef.current || dummyImages.length < 4) return;
-    const canvas = previewCanvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  // Render canvas logic
+  const drawTemplateCanvas = useCallback(
+    (canvasTarget: HTMLCanvasElement | null) => {
+      if (!canvasTarget || dummyImages.length < 4) return;
+      const ctx = canvasTarget.getContext('2d');
+      if (!ctx) return;
 
-    const opts = {
-      ctx,
-      images: dummyImages,
-      width: 1200,
-      height: 2400,
-      eventName: editTitle || 'lookUp',
-      subtitleText: editSubtitle || 'PHOTOBOOTH',
-      textColor: editColor,
-      fontStyle: editFont,
-      customOverlayImg: loadedCustomOverlay,
-    };
+      const currentConfig =
+        templateConfigs[String(activeTemplateId)] ||
+        defaultConfigMap[String(activeTemplateId)] ||
+        defaultConfigMap['5'];
 
-    if (previewTemplateId === 5) renderTemplate5(opts);
-    if (previewTemplateId === 1) renderTemplate1(opts);
-    if (previewTemplateId === 2) renderTemplate2(opts);
-    if (previewTemplateId === 3) renderTemplate3(opts);
-    if (previewTemplateId === 4) renderCustomPNGTemplate(opts);
-  }, [
-    dummyImages,
-    editTitle,
-    editSubtitle,
-    editColor,
-    editFont,
-    previewTemplateId,
-    loadedCustomOverlay,
-  ]);
+      const opts = {
+        ctx,
+        images: dummyImages,
+        width: 1200,
+        height: 2400,
+        eventName: currentConfig.title,
+        subtitleText: currentConfig.subtitle,
+        textColor: currentConfig.color,
+        fontStyle: currentConfig.font,
+        gradientTheme: currentConfig.gradient,
+        stickerStyle: currentConfig.sticker,
+        customOverlayImg: loadedCustomOverlay,
+      };
+
+      if (activeTemplateId === 5) renderTemplate5(opts);
+      if (activeTemplateId === 1) renderTemplate1(opts);
+      if (activeTemplateId === 2) renderTemplate2(opts);
+      if (activeTemplateId === 3) renderTemplate3(opts);
+      if (activeTemplateId === 4) renderCustomPNGTemplate(opts);
+    },
+    [dummyImages, activeTemplateId, templateConfigs, loadedCustomOverlay]
+  );
 
   useEffect(() => {
-    renderLivePreview();
-  }, [renderLivePreview]);
+    drawTemplateCanvas(previewCanvasRef.current);
+    if (showCustomizeModal) {
+      drawTemplateCanvas(modalCanvasRef.current);
+    }
+  }, [drawTemplateCanvas, showCustomizeModal]);
 
   const fetchEvents = async () => {
     const { data, error } = await supabase
@@ -223,17 +267,16 @@ export default function AdminDashboard() {
 
   const selectEvent = async (eventItem: ExtendedEventSession) => {
     setSelectedEvent(eventItem);
-    setEditTitle(eventItem.title_text || eventItem.event_name);
-    setEditSubtitle(eventItem.subtitle_text || 'Official Event Memory');
-    setEditColor(eventItem.text_color || '#2C3E50');
-    setEditFont(eventItem.font_style || 'serif');
+
+    const loadedConfigs = eventItem.template_configs
+      ? { ...defaultConfigMap, ...eventItem.template_configs }
+      : defaultConfigMap;
+
+    setTemplateConfigs(loadedConfigs);
+    setActiveTemplateId(5);
 
     const templatesList = eventItem.custom_template_urls || [];
-    if (templatesList.length > 0) {
-      setSelectedCustomTemplateUrl(templatesList[0]);
-    } else {
-      setSelectedCustomTemplateUrl(null);
-    }
+    setSelectedCustomTemplateUrl(templatesList.length > 0 ? templatesList[0] : null);
 
     const boothUrl = `${window.location.origin}/booth?event=${encodeURIComponent(eventItem.event_slug)}`;
 
@@ -247,6 +290,17 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('QR Generation Error:', err);
     }
+  };
+
+  const updateActiveConfig = (field: keyof TemplateConfig, value: string) => {
+    const key = String(activeTemplateId);
+    setTemplateConfigs((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] || defaultConfigMap[key] || defaultConfigMap['5']),
+        [field]: value,
+      },
+    }));
   };
 
   const handleCreateEvent = async (e: React.FormEvent) => {
@@ -269,6 +323,7 @@ export default function AdminDashboard() {
           subtitle_text: 'Official Event Memory',
           text_color: '#2C3E50',
           font_style: 'serif',
+          template_configs: defaultConfigMap,
           custom_template_urls: [],
         },
       ])
@@ -380,26 +435,30 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUpdateTemplateText = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveAllTemplateConfigs = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!selectedEvent) return;
 
     setSavingText(true);
 
+    const activeConfig = templateConfigs[String(activeTemplateId)] || defaultConfigMap['5'];
+
     const { error } = await supabase
       .from('events')
       .update({
-        title_text: editTitle,
-        subtitle_text: editSubtitle,
-        text_color: editColor,
-        font_style: editFont,
+        template_configs: templateConfigs,
+        title_text: activeConfig.title,
+        subtitle_text: activeConfig.subtitle,
+        text_color: activeConfig.color,
+        font_style: activeConfig.font,
       })
       .eq('id', selectedEvent.id);
 
     if (error) {
-      alert(`Failed to update template text: ${error.message}`);
+      alert(`Failed to update template settings: ${error.message}`);
     } else {
-      alert('Template text and style settings saved!');
+      alert(`Configuration saved for Template ${activeTemplateId}!`);
+      setShowCustomizeModal(false);
       fetchEvents();
     }
     setSavingText(false);
@@ -417,26 +476,30 @@ export default function AdminDashboard() {
     const { error } = await supabase.from('events').delete().eq('id', eventId);
 
     if (error) {
-      alert(`Failed to delete event from database: ${error.message}`);
+      alert(`Failed to delete event: ${error.message}`);
       return;
     }
 
-    setEvents((prevEvents) => {
-      const updatedList = prevEvents.filter((ev) => ev.id !== eventId);
-
+    setEvents((prev) => {
+      const updated = prev.filter((ev) => ev.id !== eventId);
       if (selectedEvent?.id === eventId) {
-        if (updatedList.length > 0) {
-          selectEvent(updatedList[0]);
+        if (updated.length > 0) {
+          selectEvent(updated[0]);
         } else {
           setSelectedEvent(null);
           setEventPhotos([]);
         }
       }
-      return updatedList;
+      return updated;
     });
 
     alert(`Event "${eventNameStr}" successfully deleted.`);
   };
+
+  const currentConfig =
+    templateConfigs[String(activeTemplateId)] ||
+    defaultConfigMap[String(activeTemplateId)] ||
+    defaultConfigMap['5'];
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-4 md:p-8 max-w-7xl mx-auto antialiased">
@@ -445,7 +508,7 @@ export default function AdminDashboard() {
           <h1 className="text-2xl md:text-3xl font-black text-red-500 tracking-tight flex items-center gap-2.5">
             <Sparkles className="w-7 h-7" /> PIMA ALBAY ADMIN
           </h1>
-          <p className="text-xs text-gray-400 mt-1">Multi-Template Booth Manager</p>
+          <p className="text-xs text-gray-400 mt-1">Independent Multi-Template Booth Manager</p>
         </div>
         <button
           onClick={() => supabase.auth.signOut()}
@@ -527,14 +590,14 @@ export default function AdminDashboard() {
         <div className="lg:col-span-2 flex flex-col gap-6">
           {selectedEvent ? (
             <>
-              {/* Custom Templates Gallery */}
+              {/* Custom PNG Templates Section */}
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
                 <h3 className="text-base font-bold text-white flex items-center gap-2 mb-2">
-                  <Upload className="w-4 h-4 text-red-500" /> Custom PNG Frame Templates (
+                  <Upload className="w-4 h-4 text-red-500" /> Custom PNG Frame Overlays (
                   {(selectedEvent.custom_template_urls || []).length})
                 </h3>
                 <p className="text-xs text-gray-400 mb-4">
-                  Add and manage frame overlays for{' '}
+                  Add custom full-screen PNG graphics for{' '}
                   <strong className="text-white">{selectedEvent.event_name}</strong>.
                 </p>
 
@@ -545,7 +608,7 @@ export default function AdminDashboard() {
                   <label className="flex-1 bg-black border border-dashed border-gray-800 hover:border-red-500 rounded-xl px-3.5 py-3 text-xs text-gray-400 flex items-center justify-center gap-2 cursor-pointer transition">
                     <ImageIcon className="w-4 h-4 text-red-500" />
                     <span className="truncate">
-                      {templateFile ? templateFile.name : 'Add New 1200x2400 PNG Frame'}
+                      {templateFile ? templateFile.name : 'Upload 1200x2400 PNG Overlay'}
                     </span>
                     <input
                       type="file"
@@ -560,14 +623,14 @@ export default function AdminDashboard() {
                     disabled={!templateFile || uploadingTemplate}
                     className="bg-red-600 hover:bg-red-500 active:scale-95 disabled:opacity-50 text-white font-bold px-5 py-3 rounded-xl text-xs shadow-lg shrink-0"
                   >
-                    {uploadingTemplate ? 'Uploading...' : 'Upload Template'}
+                    {uploadingTemplate ? 'Uploading...' : 'Upload PNG Frame'}
                   </button>
                 </form>
 
                 {(selectedEvent.custom_template_urls || []).length > 0 && (
                   <div>
                     <p className="text-xs font-semibold text-gray-300 mb-2">
-                      Available Custom Templates (Select to Preview):
+                      Uploaded Custom Overlay Templates:
                     </p>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                       {(selectedEvent.custom_template_urls || []).map((url, index) => (
@@ -582,17 +645,15 @@ export default function AdminDashboard() {
                         >
                           <img
                             src={url}
-                            alt={`Template ${index + 1}`}
+                            alt={`Overlay ${index + 1}`}
                             crossOrigin="anonymous"
                             className="w-full h-full object-contain p-1"
                           />
-
                           {selectedCustomTemplateUrl === url && (
                             <div className="absolute top-1.5 right-1.5 bg-red-600 text-white rounded-full p-1 shadow-md">
                               <Check className="w-3 h-3" />
                             </div>
                           )}
-
                           <button
                             type="button"
                             onClick={(e) => {
@@ -600,7 +661,7 @@ export default function AdminDashboard() {
                               handleDeleteCustomTemplate(url);
                             }}
                             className="absolute bottom-1.5 right-1.5 bg-black/80 hover:bg-red-600 text-white rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition z-10"
-                            title="Delete Template"
+                            title="Delete Overlay"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -611,137 +672,208 @@ export default function AdminDashboard() {
                 )}
               </div>
 
-              {/* Dynamic Text Editor & Live Preview */}
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl">
-                <h3 className="text-base font-bold text-white flex items-center gap-2 mb-4">
-                  <Type className="w-4 h-4 text-red-500" /> Dynamic Template Text Editor & Live
-                  Preview
-                </h3>
+              {/* Clean Preview & Customize Modal Trigger */}
+              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col items-center">
+                <div className="w-full flex items-center justify-between mb-4">
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-red-500" /> Live Canvas Preview
+                  </h3>
+                  <button
+                    onClick={() => setShowCustomizeModal(true)}
+                    className="bg-red-600 hover:bg-red-500 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg active:scale-95 transition"
+                  >
+                    <Sliders className="w-3.5 h-3.5" /> Customize Template
+                  </button>
+                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                  <form onSubmit={handleUpdateTemplateText} className="flex flex-col gap-3.5">
-                    <div>
-                      <label className="text-xs text-gray-400 font-medium mb-1 block">
-                        Title Text
-                      </label>
-                      <input
-                        type="text"
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        className="w-full bg-black border border-gray-800 rounded-xl px-3.5 py-2.5 text-xs text-white"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-400 font-medium mb-1 block">
-                        Subtitle / Hashtag
-                      </label>
-                      <input
-                        type="text"
-                        value={editSubtitle}
-                        onChange={(e) => setEditSubtitle(e.target.value)}
-                        className="w-full bg-black border border-gray-800 rounded-xl px-3.5 py-2.5 text-xs text-white"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-400 font-medium mb-1 block flex items-center gap-1.5">
-                        <Palette className="w-3.5 h-3.5" /> Text Color
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={editColor}
-                          onChange={(e) => setEditColor(e.target.value)}
-                          className="w-9 h-9 rounded-lg bg-black border border-gray-800 cursor-pointer"
-                        />
-                        <input
-                          type="text"
-                          value={editColor}
-                          onChange={(e) => setEditColor(e.target.value)}
-                          className="flex-1 bg-black border border-gray-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-400 font-medium mb-1 block">
-                        Font Style
-                      </label>
-                      <select
-                        value={editFont}
-                        onChange={(e) => setEditFont(e.target.value)}
-                        className="w-full bg-black border border-gray-800 rounded-xl px-3.5 py-2.5 text-xs text-white"
-                      >
-                        <option value="serif">Classic Serif (Georgia)</option>
-                        <option value="sans-serif">Modern Sans (Inter / Arial)</option>
-                        <option value="monospace">Monospace (Courier / Mono)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-400 font-medium mb-1 block">
-                        Preview Mode
-                      </label>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {[
-                          { id: 5, name: 'LookUp 4-Frame' },
-                          { id: 3, name: 'Polaroid' },
-                          { id: 1, name: 'Classic Dark' },
-                          { id: 2, name: 'Sunset' },
-                          ...(selectedCustomTemplateUrl ? [{ id: 4, name: 'Selected PNG' }] : []),
-                        ].map((t) => (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => setPreviewTemplateId(t.id)}
-                            className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition ${
-                              previewTemplateId === t.id
-                                ? 'bg-red-600 border-red-500 text-white font-bold'
-                                : 'bg-black border-gray-800 text-gray-400'
-                            }`}
-                          >
-                            {t.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
+                {/* Template Selector Tabs */}
+                <div className="grid grid-cols-4 gap-2 w-full mb-6">
+                  {[
+                    { id: 5, name: 'LookUp 4-Frame' },
+                    { id: 3, name: 'Polaroid' },
+                    { id: 1, name: 'Classic Dark' },
+                    { id: 2, name: 'Sunset' },
+                  ].map((t) => (
                     <button
-                      type="submit"
-                      disabled={savingText}
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition shadow-lg mt-2"
+                      key={t.id}
+                      type="button"
+                      onClick={() => setActiveTemplateId(t.id)}
+                      className={`py-2 px-2 text-xs font-semibold rounded-xl border transition flex items-center justify-center gap-1.5 ${
+                        activeTemplateId === t.id
+                          ? 'bg-red-600 border-red-500 text-white font-bold shadow-md'
+                          : 'bg-black border-gray-800 text-gray-400 hover:bg-gray-800'
+                      }`}
                     >
-                      <Save className="w-4 h-4" />
-                      {savingText ? 'Saving...' : 'Save Template Text Changes'}
+                      <Layers className="w-3.5 h-3.5" />
+                      {t.name}
                     </button>
-                  </form>
+                  ))}
+                </div>
 
-                  <div className="flex flex-col items-center gap-2 bg-black p-3 rounded-2xl border border-gray-800 shadow-inner">
-                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 mb-1">
-                      <Eye className="w-3.5 h-3.5 text-red-500" />
-                      <span>Live Template Text Preview</span>
+                {/* Main Preview Screen */}
+                <div className="relative w-full max-w-[260px] aspect-[1/2] rounded-2xl overflow-hidden border border-gray-800 bg-black flex items-center justify-center shadow-2xl">
+                  <canvas
+                    ref={previewCanvasRef}
+                    width={1200}
+                    height={2400}
+                    className="w-full h-auto rounded-xl"
+                  />
+                </div>
+              </div>
+
+              {/* Floating Customization Modal */}
+              {showCustomizeModal && (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                  <div className="w-full max-w-2xl bg-gray-900 border border-gray-800 rounded-3xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto no-scrollbar">
+                    <div className="flex items-center justify-between border-b border-gray-800 pb-4">
+                      <div className="flex items-center gap-2">
+                        <Palette className="w-5 h-5 text-red-500" />
+                        <h2 className="text-lg font-bold text-white">
+                          Customize Template {activeTemplateId}
+                        </h2>
+                      </div>
+                      <button
+                        onClick={() => setShowCustomizeModal(false)}
+                        className="p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded-xl transition"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
 
-                    <div className="w-full max-w-[260px] aspect-[1/2] rounded-xl overflow-hidden border border-gray-800 bg-gray-950 flex items-center justify-center">
-                      <canvas
-                        ref={previewCanvasRef}
-                        width={1200}
-                        height={2400}
-                        className="w-full h-auto rounded-lg shadow-2xl"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                      <form
+                        onSubmit={handleSaveAllTemplateConfigs}
+                        className="flex flex-col gap-3.5"
+                      >
+                        <div>
+                          <label className="text-xs text-gray-400 font-medium mb-1 block">
+                            Title Text
+                          </label>
+                          <input
+                            type="text"
+                            value={currentConfig.title}
+                            onChange={(e) => updateActiveConfig('title', e.target.value)}
+                            className="w-full bg-black border border-gray-800 rounded-xl px-3.5 py-2 text-xs text-white"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs text-gray-400 font-medium mb-1 block">
+                            Subheading Text
+                          </label>
+                          <input
+                            type="text"
+                            value={currentConfig.subtitle}
+                            onChange={(e) => updateActiveConfig('subtitle', e.target.value)}
+                            className="w-full bg-black border border-gray-800 rounded-xl px-3.5 py-2 text-xs text-white"
+                            required
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-400 font-medium mb-1 block">
+                              Background Gradient
+                            </label>
+                            <select
+                              value={currentConfig.gradient}
+                              onChange={(e) => updateActiveConfig('gradient', e.target.value)}
+                              className="w-full bg-black border border-gray-800 rounded-xl px-2.5 py-2 text-xs text-white"
+                            >
+                              <option value="dark">Dark Mesh</option>
+                              <option value="sunset">Sunset Glow</option>
+                              <option value="pastel">Pastel Soft</option>
+                              <option value="neon">Neon Magenta</option>
+                              <option value="monochrome">Monochrome</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="text-xs text-gray-400 font-medium mb-1 block flex items-center gap-1">
+                              <Smile className="w-3.5 h-3.5 text-red-500" /> Emoticons / Badges
+                            </label>
+                            <select
+                              value={currentConfig.sticker}
+                              onChange={(e) => updateActiveConfig('sticker', e.target.value)}
+                              className="w-full bg-black border border-gray-800 rounded-xl px-2.5 py-2 text-xs text-white"
+                            >
+                              <option value="none">None</option>
+                              <option value="stars">✨ Magic Stars</option>
+                              <option value="hearts">💖 Lovely Hearts</option>
+                              <option value="sparkles">⚡ Party Sparkles</option>
+                              <option value="vintage-badge">● Official Badge</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-400 font-medium mb-1 block">
+                              Font Style
+                            </label>
+                            <select
+                              value={currentConfig.font}
+                              onChange={(e) => updateActiveConfig('font', e.target.value)}
+                              className="w-full bg-black border border-gray-800 rounded-xl px-2.5 py-2 text-xs text-white"
+                            >
+                              <option value="serif">Serif (Georgia)</option>
+                              <option value="sans-serif">Sans-Serif (Inter)</option>
+                              <option value="monospace">Monospace</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="text-xs text-gray-400 font-medium mb-1 block">
+                              Text Color
+                            </label>
+                            <input
+                              type="color"
+                              value={currentConfig.color}
+                              onChange={(e) => updateActiveConfig('color', e.target.value)}
+                              className="w-full h-8 rounded-lg bg-black border border-gray-800 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={savingText}
+                          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition shadow-lg mt-2"
+                        >
+                          <Save className="w-4 h-4" />
+                          {savingText
+                            ? 'Saving...'
+                            : `Save Customization for Template ${activeTemplateId}`}
+                        </button>
+                      </form>
+
+                      {/* Modal Live Preview Canvas */}
+                      <div className="flex flex-col items-center gap-2 bg-black p-3 rounded-2xl border border-gray-800 shadow-inner">
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 mb-1">
+                          <Eye className="w-3.5 h-3.5 text-red-500" />
+                          <span>Real-time Preview</span>
+                        </div>
+
+                        <div className="w-full max-w-[200px] aspect-[1/2] rounded-xl overflow-hidden border border-gray-800 bg-gray-950 flex items-center justify-center">
+                          <canvas
+                            ref={modalCanvasRef}
+                            width={1200}
+                            height={2400}
+                            className="w-full h-auto rounded-lg shadow-2xl"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* QR Code */}
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center gap-6">
                 {qrCodeDataUrl && (
                   <div className="bg-white p-3 rounded-2xl shadow-xl shrink-0">
-                    <img src={qrCodeDataUrl} alt="QR Code" className="w-40 h-40 object-contain" />
+                    <img src={qrCodeDataUrl} alt="QR Code" className="w-36 h-36 object-contain" />
                   </div>
                 )}
                 <div className="flex-1 flex flex-col items-start gap-2">
@@ -761,9 +893,9 @@ export default function AdminDashboard() {
                       href={`/booth?event=${selectedEvent.event_slug}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5"
+                      className="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5"
                     >
-                      <ExternalLink className="w-3.5 h-3.5" /> Launch Booth
+                      <ExternalLink className="w-3.5 h-3.5" /> Launch Active Booth
                     </a>
                   </div>
                 </div>
@@ -787,7 +919,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {loadingPhotos ? (
-                  <div className="p-8 text-center text-gray-500 text-xs">Loading photos...</div>
+                  <div className="p-8 text-center text-gray-500 text-xs">Loading gallery...</div>
                 ) : eventPhotos.length === 0 ? (
                   <div className="p-8 text-center text-gray-500 border border-dashed border-gray-800 rounded-xl">
                     <p className="text-xs">No photos captured for this event yet.</p>
@@ -804,10 +936,6 @@ export default function AdminDashboard() {
                           alt="Photobooth Strip"
                           crossOrigin="anonymous"
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              'https://via.placeholder.com/600x1200/121212/ffffff?text=Image+Load+Error';
-                          }}
                         />
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center p-2">
                           <a
