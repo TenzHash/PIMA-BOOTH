@@ -7,6 +7,8 @@ export interface TemplateOptions {
   subtitleText?: string;
   textColor?: string;
   fontStyle?: string;
+  gradientTheme?: string;
+  stickerStyle?: string;
   customOverlayImg?: HTMLImageElement | null;
 }
 
@@ -42,13 +44,13 @@ function drawImageCover(
   ctx.clip();
   ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
 
-  // Subtle gradient vignette overlay for film-like depth
+  // Subtle vignette gradient
   const grad = ctx.createRadialGradient(
     x + w / 2, y + h / 2, Math.min(w, h) * 0.3,
     x + w / 2, y + h / 2, Math.max(w, h) * 0.75
   );
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0.18)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
   ctx.fillStyle = grad;
   ctx.fillRect(x, y, w, h);
 
@@ -67,7 +69,87 @@ function getFontFamily(style?: string): string {
   }
 }
 
-// Template 1: Dark Mesh Gradient
+// Background Gradient Generator
+function applyCanvasGradient(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  theme: string = 'dark'
+) {
+  const grad = ctx.createLinearGradient(0, 0, width, height);
+
+  switch (theme) {
+    case 'sunset':
+      grad.addColorStop(0, '#FFEDD5');
+      grad.addColorStop(0.5, '#FDBA74');
+      grad.addColorStop(1, '#F43F5E');
+      break;
+    case 'pastel':
+      grad.addColorStop(0, '#F1F5F9');
+      grad.addColorStop(0.5, '#E2E8F0');
+      grad.addColorStop(1, '#CBD5E1');
+      break;
+    case 'neon':
+      grad.addColorStop(0, '#0F172A');
+      grad.addColorStop(0.5, '#581C87');
+      grad.addColorStop(1, '#831843');
+      break;
+    case 'monochrome':
+      grad.addColorStop(0, '#FFFFFF');
+      grad.addColorStop(1, '#E2E8F0');
+      break;
+    case 'dark':
+    default:
+      grad.addColorStop(0, '#0F172A');
+      grad.addColorStop(0.5, '#1E1B4B');
+      grad.addColorStop(1, '#020617');
+      break;
+  }
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+}
+
+// Optional Decorative Stickers Render
+function drawStickers(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  stickerStyle: string = 'none'
+) {
+  if (!stickerStyle || stickerStyle === 'none') return;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+
+  if (stickerStyle === 'stars') {
+    ctx.font = '36px sans-serif';
+    ctx.fillText('✨', 90, 80);
+    ctx.fillText('⭐', width - 90, 80);
+    ctx.fillText('🌟', 80, height - 90);
+    ctx.fillText('✨', width - 80, height - 90);
+  } else if (stickerStyle === 'hearts') {
+    ctx.font = '36px sans-serif';
+    ctx.fillText('💖', 90, 80);
+    ctx.fillText('💗', width - 90, 80);
+    ctx.fillText('💕', 80, height - 90);
+    ctx.fillText('❤️', width - 80, height - 90);
+  } else if (stickerStyle === 'sparkles') {
+    ctx.font = '32px sans-serif';
+    ctx.fillText('⚡', 100, 70);
+    ctx.fillText('🔥', width - 100, 70);
+    ctx.fillText('🎉', 90, height - 80);
+    ctx.fillText('🥳', width - 90, height - 80);
+  } else if (stickerStyle === 'vintage-badge') {
+    ctx.font = 'bold 20px monospace';
+    ctx.fillStyle = '#DC2626';
+    ctx.fillText('● OFFICIAL MEMORY ●', width / 2, 40);
+  }
+
+  ctx.restore();
+}
+
+// Template 1: Classic Grid
 export function renderTemplate1({
   ctx,
   images,
@@ -77,13 +159,10 @@ export function renderTemplate1({
   subtitleText = 'Official Event Memory',
   textColor = '#FFFFFF',
   fontStyle = 'sans-serif',
+  gradientTheme = 'dark',
+  stickerStyle = 'none',
 }: TemplateOptions) {
-  const bgGrad = ctx.createLinearGradient(0, 0, width, height);
-  bgGrad.addColorStop(0, '#0F172A');
-  bgGrad.addColorStop(0.5, '#1E1B4B');
-  bgGrad.addColorStop(1, '#020617');
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, width, height);
+  applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
   const margin = 40;
@@ -109,7 +188,7 @@ export function renderTemplate1({
     const x = margin + col * (cellW + gap);
     const y = topHeader + row * (cellH + gap);
 
-    ctx.fillStyle = '#1E293B';
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(x - 4, y - 4, cellW + 8, cellH + 8);
     drawImageCover(ctx, img, x, y, cellW, cellH);
   });
@@ -117,9 +196,11 @@ export function renderTemplate1({
   ctx.fillStyle = textColor;
   ctx.font = `18px ${font}`;
   ctx.fillText(subtitleText, width / 2, height - 70);
+
+  drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Template 2: Vibrant Sunset Gradient
+// Template 2: Sunset / Vibrant Theme
 export function renderTemplate2({
   ctx,
   images,
@@ -129,13 +210,10 @@ export function renderTemplate2({
   subtitleText = 'Official Event Memory',
   textColor = '#1E293B',
   fontStyle = 'serif',
+  gradientTheme = 'sunset',
+  stickerStyle = 'none',
 }: TemplateOptions) {
-  const grad = ctx.createLinearGradient(0, 0, width, height);
-  grad.addColorStop(0, '#FFEDD5');
-  grad.addColorStop(0.5, '#FDBA74');
-  grad.addColorStop(1, '#F43F5E');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, width, height);
+  applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
   const margin = 45;
@@ -171,9 +249,11 @@ export function renderTemplate2({
 
   ctx.font = `italic 20px ${font}`;
   ctx.fillText(subtitleText, width / 2, height - 60);
+
+  drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Template 3: Polaroid Pastel Soft Gradient
+// Template 3: Polaroid Frame
 export function renderTemplate3({
   ctx,
   images,
@@ -183,12 +263,10 @@ export function renderTemplate3({
   subtitleText = 'Official Event Memory',
   textColor = '#1E293B',
   fontStyle = 'serif',
+  gradientTheme = 'pastel',
+  stickerStyle = 'none',
 }: TemplateOptions) {
-  const grad = ctx.createLinearGradient(0, 0, 0, height);
-  grad.addColorStop(0, '#F1F5F9');
-  grad.addColorStop(1, '#E2E8F0');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, width, height);
+  applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
   const sideMargin = 60;
@@ -228,25 +306,24 @@ export function renderTemplate3({
 
   ctx.font = `18px ${font}`;
   ctx.fillText(subtitleText, width / 2, height - 75);
+
+  drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Template 5: 4-Frame "lookUp" Layout with Ambient Backdrop
+// Template 5: 4-Frame "lookUp" Vertical Layout
 export function renderTemplate5({
   ctx,
   images,
   width,
   height,
-  eventName = 'lookUp',
-  subtitleText = 'PHOTOBOOTH',
+  eventName = 'PIMA',
+  subtitleText = 'WELCOME PARTY 2026',
   textColor = '#000000',
   fontStyle = 'sans-serif',
+  gradientTheme = 'monochrome',
+  stickerStyle = 'none',
 }: TemplateOptions) {
-  // Clean modern gradient background
-  const grad = ctx.createLinearGradient(0, 0, width, height);
-  grad.addColorStop(0, '#FFFFFF');
-  grad.addColorStop(1, '#F8FAFC');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, width, height);
+  applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
   const sideMargin = 80;
@@ -287,6 +364,8 @@ export function renderTemplate5({
 
   ctx.font = `bold 22px ${font}`;
   ctx.fillText(subtitleText.toUpperCase(), width / 2, footerCenterY + 45);
+
+  drawStickers(ctx, width, height, stickerStyle);
 }
 
 export function renderCustomPNGTemplate({
@@ -295,6 +374,7 @@ export function renderCustomPNGTemplate({
   width,
   height,
   customOverlayImg,
+  stickerStyle = 'none',
 }: TemplateOptions) {
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
@@ -318,4 +398,6 @@ export function renderCustomPNGTemplate({
   if (customOverlayImg) {
     ctx.drawImage(customOverlayImg, 0, 0, width, height);
   }
+
+  drawStickers(ctx, width, height, stickerStyle);
 }
