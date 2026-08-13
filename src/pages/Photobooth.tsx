@@ -287,13 +287,14 @@ export default function Photobooth() {
     };
   }, [isCameraActive, startCamera]);
 
-  // Perfectly synchronized 1:1 Crop matching DOM Overlay
+  // Dynamic Snapshot Crop based on Template Layout (3:2 for 4-shot vs 4:3 for 6-shot)
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
 
     const targetWidth = 1200;
-    const targetHeight = 800;
+    // Template 5 uses 3:2 horizontal strip frames (800h); 6-shot templates use 4:3 grid frames (900h)
+    const targetHeight = selectedTemplate === 5 ? 800 : 900;
     const targetAspect = targetWidth / targetHeight;
 
     const videoWidth = video.videoWidth || 1280;
@@ -310,7 +311,6 @@ export default function Photobooth() {
       sourceX = (videoWidth - sourceWidth) / 2;
     } else {
       sourceHeight = videoWidth / targetAspect;
-      // Exact center crop matching the DOM mask box
       sourceY = (videoHeight - sourceHeight) / 2;
     }
 
@@ -668,8 +668,12 @@ export default function Photobooth() {
 
       {photos.length < requiredPhotoCount ? (
         <main className="w-full flex-1 flex flex-col justify-center items-center gap-4 my-auto">
-          {/* Synchronized Viewfinder Box */}
-          <div className="relative w-full aspect-[3/2] max-w-[340px] bg-black rounded-3xl overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
+          {/* Synchronized Viewfinder Box dynamically adjusting to selected template ratio */}
+          <div
+            className={`relative w-full ${
+              selectedTemplate === 5 ? 'aspect-[3/2]' : 'aspect-[4/3]'
+            } max-w-[340px] bg-black rounded-3xl overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center`}
+          >
             {cameraError ? (
               <div className="p-6 text-center text-red-400 flex flex-col items-center gap-2.5">
                 <AlertCircle className="w-10 h-10 text-red-500" />
@@ -685,7 +689,6 @@ export default function Photobooth() {
                   className={`w-full h-full object-cover ${isFrontCamera() ? '-scale-x-100' : ''}`}
                 />
 
-                {/* Viewfinder Corner Accents */}
                 <div className="absolute inset-2 pointer-events-none border border-dashed border-white/30 rounded-2xl">
                   <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-red-500" />
                   <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-red-500" />
