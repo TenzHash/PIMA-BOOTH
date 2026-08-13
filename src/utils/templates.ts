@@ -12,7 +12,7 @@ export interface TemplateOptions {
   customOverlayImg?: HTMLImageElement | null;
 }
 
-// Top-weighted cover drawing helper to preserve faces in grid templates
+// Dynamically handle cover scaling: top-align for 3:2 slots, center-cover for original 6-shot grid slots
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -36,8 +36,8 @@ function drawImageCover(
     offsetX = (w - renderW) / 2;
   } else {
     renderH = w / imgAspect;
-    // Top-align by 10% offset so heads and faces remain fully visible
-    offsetY = (h - renderH) * 0.1;
+    // If slot is horizontal (like Template 5's 3:2 frame), top-align; otherwise center-cover for 6-shot grid
+    offsetY = targetAspect > 1.3 ? 0 : (h - renderH) / 2;
   }
 
   ctx.save();

@@ -287,38 +287,41 @@ export default function Photobooth() {
     };
   }, [isCameraActive, startCamera]);
 
-  // Top-aligned capture calculation to prevent cutting off heads in 6-shot grids
+  // Completely isolated frame capture: Template 5 uses 3:2 top-aligned crop; 6-shot templates use original full camera aspect ratio
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
 
-    const targetWidth = 1200;
-    const targetHeight = selectedTemplate === 5 ? 800 : 900;
-    const targetAspect = targetWidth / targetHeight;
-
     const videoWidth = video.videoWidth || 1280;
     const videoHeight = video.videoHeight || 720;
-    const videoAspect = videoWidth / videoHeight;
 
-    let sourceX = 0,
-      sourceY = 0,
-      sourceWidth = videoWidth,
-      sourceHeight = videoHeight;
-
-    if (videoAspect > targetAspect) {
-      sourceWidth = videoHeight * targetAspect;
-      sourceX = (videoWidth - sourceWidth) / 2;
-    } else {
-      sourceHeight = videoWidth / targetAspect;
-      // Align 10% from the top so hair/faces are not cut off in 6-shot templates
-      sourceY = (videoHeight - sourceHeight) * 0.1;
-    }
+    const targetWidth = 1200;
+    // Template 5 (4 shots) forces 3:2 ratio; 6-shot templates preserve native camera aspect ratio
+    const targetHeight =
+      selectedTemplate === 5 ? 800 : Math.round((1200 * videoHeight) / videoWidth);
 
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = targetWidth;
     tempCanvas.height = targetHeight;
     const ctx = tempCanvas.getContext('2d');
     if (!ctx) return null;
+
+    let sourceX = 0,
+      sourceY = 0,
+      sourceWidth = videoWidth,
+      sourceHeight = videoHeight;
+
+    if (selectedTemplate === 5) {
+      const targetAspect = targetWidth / targetHeight;
+      const videoAspect = videoWidth / videoHeight;
+      if (videoAspect > targetAspect) {
+        sourceWidth = videoHeight * targetAspect;
+        sourceX = (videoWidth - sourceWidth) / 2;
+      } else {
+        sourceHeight = videoWidth / targetAspect;
+        sourceY = 0; // Top-align for template 5
+      }
+    }
 
     if (isFrontCamera()) {
       ctx.translate(targetWidth, 0);
@@ -668,6 +671,7 @@ export default function Photobooth() {
 
       {photos.length < requiredPhotoCount ? (
         <main className="w-full flex-1 flex flex-col justify-center items-center gap-4 my-auto">
+          {/* Viewfinder dynamically adjusts aspect ratio: 3:2 for Template 5, full native camera container for 6-shot templates */}
           <div
             className={`relative w-full ${
               selectedTemplate === 5 ? 'aspect-[3/2]' : 'aspect-[4/3]'
@@ -685,7 +689,9 @@ export default function Photobooth() {
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover ${isFrontCamera() ? '-scale-x-100' : ''}`}
+                  className={`w-full h-full object-cover ${selectedTemplate === 5 ? 'object-top' : 'object-center'} ${
+                    isFrontCamera() ? '-scale-x-100' : ''
+                  }`}
                 />
 
                 <div className="absolute inset-2 pointer-events-none border border-dashed border-white/30 rounded-2xl">
