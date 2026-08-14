@@ -7,12 +7,12 @@ export interface TemplateOptions {
   subtitleText?: string;
   textColor?: string;
   fontStyle?: string;
+  fontSize?: string;
   gradientTheme?: string;
   stickerStyle?: string;
   customOverlayImg?: HTMLImageElement | null;
 }
 
-// Draw image into template slot with exact aspect-ratio matching (Cover / Fill)
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -36,7 +36,7 @@ function drawImageCover(
     offsetX = (w - renderW) / 2;
   } else {
     renderH = w / imgAspect;
-    offsetY = targetAspect > 1.3 ? 0 : 0;
+    offsetY = 0;
   }
 
   ctx.save();
@@ -46,8 +46,12 @@ function drawImageCover(
   ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
 
   const grad = ctx.createRadialGradient(
-    x + w / 2, y + h / 2, Math.min(w, h) * 0.3,
-    x + w / 2, y + h / 2, Math.max(w, h) * 0.75
+    x + w / 2,
+    y + h / 2,
+    Math.min(w, h) * 0.3,
+    x + w / 2,
+    y + h / 2,
+    Math.max(w, h) * 0.75
   );
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
   grad.addColorStop(1, 'rgba(0, 0, 0, 0.12)');
@@ -56,7 +60,6 @@ function drawImageCover(
 
   ctx.restore();
 }
-
 
 function getFontFamily(style?: string): string {
   switch (style) {
@@ -67,6 +70,18 @@ function getFontFamily(style?: string): string {
     case 'serif':
     default:
       return 'Georgia, "Times New Roman", serif';
+  }
+}
+
+function getFontSizeMultiplier(size?: string): number {
+  switch (size) {
+    case 'small':
+      return 0.82;
+    case 'large':
+      return 1.25;
+    case 'normal':
+    default:
+      return 1.0;
   }
 }
 
@@ -158,12 +173,14 @@ export function renderTemplate1({
   subtitleText = 'WELCOME PARTY 2026',
   textColor = '#FFFFFF',
   fontStyle = 'sans-serif',
+  fontSize = 'normal',
   gradientTheme = 'dark',
   stickerStyle = 'none',
 }: TemplateOptions) {
   applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
+  const scale = getFontSizeMultiplier(fontSize);
   const sideMargin = 80;
   const topHeader = 120;
   const footerHeight = 180;
@@ -178,7 +195,7 @@ export function renderTemplate1({
 
   ctx.fillStyle = textColor;
   ctx.textAlign = 'center';
-  ctx.font = `bold 42px ${font}`;
+  ctx.font = `bold ${Math.round(42 * scale)}px ${font}`;
   ctx.fillText(eventName.toUpperCase(), width / 2, 75);
 
   images.slice(0, 6).forEach((img, i) => {
@@ -193,7 +210,7 @@ export function renderTemplate1({
   });
 
   ctx.fillStyle = textColor;
-  ctx.font = `18px ${font}`;
+  ctx.font = `${Math.round(18 * scale)}px ${font}`;
   ctx.fillText(subtitleText, width / 2, height - 70);
 
   drawStickers(ctx, width, height, stickerStyle);
@@ -209,12 +226,14 @@ export function renderTemplate2({
   subtitleText = 'WELCOME PARTY 2026',
   textColor = '#1E293B',
   fontStyle = 'serif',
+  fontSize = 'normal',
   gradientTheme = 'sunset',
   stickerStyle = 'none',
 }: TemplateOptions) {
   applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
+  const scale = getFontSizeMultiplier(fontSize);
   const sideMargin = 80;
   const startY = 70;
   const availableH = height - startY - 180;
@@ -243,16 +262,16 @@ export function renderTemplate2({
 
   ctx.fillStyle = textColor;
   ctx.textAlign = 'center';
-  ctx.font = `bold 38px ${font}`;
+  ctx.font = `bold ${Math.round(38 * scale)}px ${font}`;
   ctx.fillText(eventName, width / 2, height - 100);
 
-  ctx.font = `italic 20px ${font}`;
+  ctx.font = `italic ${Math.round(20 * scale)}px ${font}`;
   ctx.fillText(subtitleText, width / 2, height - 60);
 
   drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Template 3: Authentic Polaroid Style Strip (6 Shots with wide bottom borders and card shadows)
+// Template 3: Authentic Polaroid Style Strip (6 Shots)
 export function renderTemplate3({
   ctx,
   images,
@@ -262,12 +281,14 @@ export function renderTemplate3({
   subtitleText = 'WELCOME PARTY 2026',
   textColor = '#1E293B',
   fontStyle = 'serif',
+  fontSize = 'normal',
   gradientTheme = 'pastel',
   stickerStyle = 'none',
 }: TemplateOptions) {
   applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
+  const scale = getFontSizeMultiplier(fontSize);
   const sideMargin = 95;
   const topMargin = 70;
   const bottomSpace = 200;
@@ -290,7 +311,7 @@ export function renderTemplate3({
     const y = topMargin + r * (cellH + gapY);
 
     ctx.save();
-    
+
     const tiltAngles = [-0.02, 0.015, -0.015, 0.02, -0.01, 0.015];
     const angle = tiltAngles[i % tiltAngles.length];
     const centerX = x + cellW / 2;
@@ -307,12 +328,7 @@ export function renderTemplate3({
     ctx.shadowOffsetY = 8;
 
     const polaroidPaddingBottom = 45;
-    ctx.fillRect(
-      x - 10, 
-      y - 10, 
-      cellW + 20, 
-      cellH + 10 + polaroidPaddingBottom
-    );
+    ctx.fillRect(x - 10, y - 10, cellW + 20, cellH + 10 + polaroidPaddingBottom);
     ctx.shadowColor = 'transparent';
 
     drawImageCover(ctx, img, x, y, cellW, cellH);
@@ -322,10 +338,10 @@ export function renderTemplate3({
 
   ctx.fillStyle = textColor;
   ctx.textAlign = 'center';
-  ctx.font = `bold 36px ${font}`;
+  ctx.font = `bold ${Math.round(36 * scale)}px ${font}`;
   ctx.fillText(eventName, width / 2, height - 110);
 
-  ctx.font = `18px ${font}`;
+  ctx.font = `${Math.round(18 * scale)}px ${font}`;
   ctx.fillText(subtitleText, width / 2, height - 70);
 
   drawStickers(ctx, width, height, stickerStyle);
@@ -341,12 +357,14 @@ export function renderTemplate5({
   subtitleText = 'WELCOME PARTY 2026',
   textColor = '#000000',
   fontStyle = 'sans-serif',
+  fontSize = 'normal',
   gradientTheme = 'monochrome',
   stickerStyle = 'none',
 }: TemplateOptions) {
   applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
+  const scale = getFontSizeMultiplier(fontSize);
 
   const sideMargin = 140;
   const topMargin = 90;
@@ -381,17 +399,16 @@ export function renderTemplate5({
   ctx.fillStyle = textColor || '#000000';
   ctx.textAlign = 'center';
 
-  ctx.font = `italic bold 68px ${font}`;
+  ctx.font = `italic bold ${Math.round(68 * scale)}px ${font}`;
   ctx.fillText(eventName, width / 2, footerCenterY);
 
-  ctx.font = `bold 22px ${font}`;
+  ctx.font = `bold ${Math.round(22 * scale)}px ${font}`;
   ctx.fillText(subtitleText.toUpperCase(), width / 2, footerCenterY + 48);
 
   drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Custom PNG Frame Overlay Renderer (Includes title, subheading, and 0.8 square ratio slots)
-// Custom PNG Frame Overlay Renderer (Polaroid Style slots with card shadows and wide bottom borders)
+// Custom PNG Frame Overlay Renderer (Polaroid Style Slots with Custom Overlay)
 export function renderCustomPNGTemplate({
   ctx,
   images,
@@ -401,14 +418,13 @@ export function renderCustomPNGTemplate({
   subtitleText = 'WELCOME PARTY 2026',
   textColor = '#000000',
   fontStyle = 'sans-serif',
+  fontSize = 'normal',
   customOverlayImg,
   stickerStyle = 'none',
 }: TemplateOptions) {
-  // 1. Base background fill
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
 
-  // 2. Polaroid card grid layout configuration
   const cols = 2;
   const rows = 3;
   const sideMargin = 95;
@@ -422,9 +438,8 @@ export function renderCustomPNGTemplate({
 
   const cellW = (availableW - gapX * (cols - 1)) / cols;
   const cellH = (availableH - gapY * (rows - 1)) / rows;
-  const polaroidPaddingBottom = 45; // Classic wide bottom border space
+  const polaroidPaddingBottom = 45;
 
-  // 3. Draw individual Polaroid card background shadows and photos first
   images.slice(0, 6).forEach((img, i) => {
     const c = i % cols;
     const r = Math.floor(i / cols);
@@ -432,8 +447,7 @@ export function renderCustomPNGTemplate({
     const y = topMargin + r * (cellH + gapY);
 
     ctx.save();
-    
-    // Slight authentic polaroid tilt per frame
+
     const tiltAngles = [-0.02, 0.015, -0.015, 0.02, -0.01, 0.015];
     const angle = tiltAngles[i % tiltAngles.length];
     const centerX = x + cellW / 2;
@@ -443,72 +457,58 @@ export function renderCustomPNGTemplate({
     ctx.rotate(angle);
     ctx.translate(-centerX, -centerY);
 
-    // White Polaroid Card Border
     ctx.fillStyle = '#FFFFFF';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
     ctx.shadowBlur = 18;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 8;
 
-    ctx.fillRect(
-      x - 10, 
-      y - 10, 
-      cellW + 20, 
-      cellH + 10 + polaroidPaddingBottom
-    );
+    ctx.fillRect(x - 10, y - 10, cellW + 20, cellH + 10 + polaroidPaddingBottom);
     ctx.shadowColor = 'transparent';
 
-    // Draw photo into slot using cover sizing
     drawImageCover(ctx, img, x, y, cellW, cellH);
 
     ctx.restore();
   });
 
-  // 4. Draw custom frame overlay on top, punching out the Polaroid card window areas
   if (customOverlayImg) {
     ctx.save();
-    
+
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = width;
     tempCanvas.height = height;
     const tempCtx = tempCanvas.getContext('2d');
-    
+
     if (tempCtx) {
       tempCtx.drawImage(customOverlayImg, 0, 0, width, height);
-      
+
       tempCtx.globalCompositeOperation = 'destination-out';
       images.slice(0, 6).forEach((_, i) => {
         const c = i % cols;
         const r = Math.floor(i / cols);
         const x = sideMargin + c * (cellW + gapX);
         const y = topMargin + r * (cellH + gapY);
-        
-        // Punch out the exact polaroid card window frame region
-        tempCtx.fillRect(
-          x - 10, 
-          y - 10, 
-          cellW + 20, 
-          cellH + 10 + polaroidPaddingBottom
-        );
+        tempCtx.fillRect(x - 10, y - 10, cellW + 20, cellH + 10 + polaroidPaddingBottom);
       });
-      
+
       ctx.drawImage(tempCanvas, 0, 0);
     } else {
       ctx.drawImage(customOverlayImg, 0, 0, width, height);
     }
-    
+
     ctx.restore();
   }
 
-  // 5. Title and Subheading Text
   const font = getFontFamily(fontStyle);
+  const scale = getFontSizeMultiplier(fontSize);
+
   ctx.fillStyle = textColor || '#000000';
   ctx.textAlign = 'center';
 
-  ctx.font = `bold 36px ${font}`;
+  ctx.font = `bold ${Math.round(36 * scale)}px ${font}`;
   ctx.fillText(eventName.toUpperCase(), width / 2, height - 110);
 
-  ctx.font = `18px ${font}`;
+  ctx.font = `${Math.round(18 * scale)}px ${font}`;
   ctx.fillText(subtitleText.toUpperCase(), width / 2, height - 70);
 
   drawStickers(ctx, width, height, stickerStyle);

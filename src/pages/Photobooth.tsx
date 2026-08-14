@@ -35,6 +35,7 @@ interface TemplateConfig {
   subtitle: string;
   color: string;
   font: string;
+  fontSize: string;
   gradient: string;
   sticker: string;
 }
@@ -45,6 +46,7 @@ const defaultConfigMap: Record<string, TemplateConfig> = {
     subtitle: 'WELCOME PARTY 2026',
     color: '#FFFFFF',
     font: 'sans-serif',
+    fontSize: 'normal',
     gradient: 'dark',
     sticker: 'none',
   },
@@ -53,6 +55,7 @@ const defaultConfigMap: Record<string, TemplateConfig> = {
     subtitle: 'WELCOME PARTY 2026',
     color: '#1E293B',
     font: 'serif',
+    fontSize: 'normal',
     gradient: 'sunset',
     sticker: 'none',
   },
@@ -61,6 +64,7 @@ const defaultConfigMap: Record<string, TemplateConfig> = {
     subtitle: 'WELCOME PARTY 2026',
     color: '#1E293B',
     font: 'serif',
+    fontSize: 'normal',
     gradient: 'pastel',
     sticker: 'none',
   },
@@ -69,6 +73,7 @@ const defaultConfigMap: Record<string, TemplateConfig> = {
     subtitle: 'WELCOME PARTY 2026',
     color: '#000000',
     font: 'sans-serif',
+    fontSize: 'normal',
     gradient: 'monochrome',
     sticker: 'none',
   },
@@ -77,6 +82,7 @@ const defaultConfigMap: Record<string, TemplateConfig> = {
     subtitle: 'WELCOME PARTY 2026',
     color: '#000000',
     font: 'sans-serif',
+    fontSize: 'normal',
     gradient: 'monochrome',
     sticker: 'none',
   },
@@ -154,6 +160,16 @@ export default function Photobooth() {
     setDummyImages(imgs);
   }, []);
 
+  const loadCustomOverlay = (url: string) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+    img.onload = () => {
+      setActiveCustomOverlayImg(img);
+      setSelectedTemplate(4);
+    };
+  };
+
   useEffect(() => {
     let isMounted = true;
     const fetchEventData = async () => {
@@ -188,16 +204,6 @@ export default function Photobooth() {
     };
   }, [eventSlug]);
 
-  const loadCustomOverlay = (url: string) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = url;
-    img.onload = () => {
-      setActiveCustomOverlayImg(img);
-      setSelectedTemplate(4);
-    };
-  };
-
   useEffect(() => {
     if (!showSetupModal || !modalCanvasRef.current || dummyImages.length < 4) return;
     const canvas = modalCanvasRef.current;
@@ -218,6 +224,7 @@ export default function Photobooth() {
       subtitleText: currentConfig.subtitle,
       textColor: currentConfig.color,
       fontStyle: currentConfig.font,
+      fontSize: currentConfig.fontSize || 'normal',
       gradientTheme: currentConfig.gradient,
       stickerStyle: currentConfig.sticker,
       customOverlayImg: activeCustomOverlayImg,
@@ -444,6 +451,7 @@ export default function Photobooth() {
           subtitleText: currentConfig.subtitle,
           textColor: currentConfig.color,
           fontStyle: currentConfig.font,
+          fontSize: currentConfig.fontSize || 'normal',
           gradientTheme: currentConfig.gradient,
           stickerStyle: currentConfig.sticker,
           customOverlayImg: activeCustomOverlayImg,
@@ -819,7 +827,7 @@ export default function Photobooth() {
             <p className="text-[11px] text-gray-400">Select frame layout</p>
           </div>
 
-          <div className="grid grid-cols-4 gap-1.5 w-full">
+          <div className="grid grid-cols-5 gap-1.5 w-full">
             {[
               { id: 5, name: 'LookUp' },
               { id: 3, name: 'Polaroid' },
