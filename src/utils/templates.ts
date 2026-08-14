@@ -435,3 +435,58 @@ export function renderCustomPNGTemplate({
   const totalW = width - sideMargin * 2;
   const cellW = (totalW - gapX * (cols - 1)) / cols;
   const cellH = cellW; // Strict square ratio (1:1)
+
+  // 3. Draw captured photos first in the background slots
+  images.slice(0, 6).forEach((img, i) => {
+    const c = i % cols;
+    const r = Math.floor(i / cols);
+    const x = sideMargin + c * (cellW + gapX);
+    const y = topMargin + r * (cellH + gapY);
+    
+    drawImageContain(ctx, img, x, y, cellW, cellH);
+  });
+
+  // 4. Draw custom frame overlay on top, punching out the square slots
+  if (customOverlayImg) {
+    ctx.save();
+    
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    if (tempCtx) {
+      tempCtx.drawImage(customOverlayImg, 0, 0, width, height);
+      
+      tempCtx.globalCompositeOperation = 'destination-out';
+      images.slice(0, 6).forEach((_, i) => {
+        const c = i % cols;
+        const r = Math.floor(i / cols);
+        const x = sideMargin + c * (cellW + gapX);
+        const y = topMargin + r * (cellH + gapY);
+        tempCtx.fillRect(x, y, cellW, cellH);
+      });
+      
+      ctx.drawImage(tempCanvas, 0, 0);
+    } else {
+      ctx.drawImage(customOverlayImg, 0, 0, width, height);
+    }
+    
+    ctx.restore();
+  }
+
+  // 5. Draw Title and Subheading Text on top of the custom template
+  const font = getFontFamily(fontStyle);
+  ctx.fillStyle = textColor || '#000000';
+  ctx.textAlign = 'center';
+
+  // Title (Near top header area)
+  ctx.font = `bold 48px ${font}`;
+  ctx.fillText(eventName.toUpperCase(), width / 2, 110);
+
+  // Subheading (Near bottom footer area)
+  ctx.font = `bold 22px ${font}`;
+  ctx.fillText(subtitleText.toUpperCase(), width / 2, height - 100);
+
+  drawStickers(ctx, width, height, stickerStyle);
+}
