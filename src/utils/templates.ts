@@ -446,15 +446,16 @@ export function renderCustomPNGTemplate({
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
 
+  // Adjusted sizing and spacing for balanced 0.8x0.8 square proportions
   const cols = 2;
-  const sideMargin = 150;
-  const topMargin = 220;
-  const gapX = 40;
-  const gapY = 30;
+  const sideMargin = 120;
+  const topMargin = 200;
+  const gapX = 35;
+  const gapY = 35;
 
   const totalW = width - sideMargin * 2;
   const cellW = (totalW - gapX * (cols - 1)) / cols;
-  const cellH = cellW;
+  const cellH = cellW; // Perfect 1:1 (0.8x0.8 ratio relative to canvas width)
 
   images.slice(0, 6).forEach((img, i) => {
     const c = i % cols;
