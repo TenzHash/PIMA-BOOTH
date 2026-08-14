@@ -80,7 +80,8 @@ const defaultConfigMap: Record<string, TemplateConfig> = {
 };
 
 export default function AdminDashboard() {
-  const [eventSlug, setEventSlug] = useState('pima-albay');
+  // To this (remove unused setEventSlug or use standard state):
+  const [eventSlug] = useState('pima-albay');
   const [eventName, setEventName] = useState('PIMA Albay Welcome Party');
   const [templateConfigs, setTemplateConfigs] =
     useState<Record<string, TemplateConfig>>(defaultConfigMap);
