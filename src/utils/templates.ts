@@ -431,6 +431,7 @@ export function renderTemplate5({
 }
 
 // Custom PNG Frame Overlay Renderer (Includes title, subheading, and 0.8 square ratio slots)
+// Custom PNG Frame Overlay Renderer (Polaroid Style slots with card shadows and wide bottom borders)
 export function renderCustomPNGTemplate({
   ctx,
   images,
@@ -443,29 +444,67 @@ export function renderCustomPNGTemplate({
   customOverlayImg,
   stickerStyle = 'none',
 }: TemplateOptions) {
+  // 1. Base background fill
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
 
-  // Adjusted sizing and spacing for balanced 0.8x0.8 square proportions
+  // 2. Polaroid card grid layout configuration
   const cols = 2;
-  const sideMargin = 120;
-  const topMargin = 200;
-  const gapX = 35;
-  const gapY = 35;
+  const rows = 3;
+  const sideMargin = 95;
+  const topMargin = 70;
+  const bottomSpace = 200;
 
-  const totalW = width - sideMargin * 2;
-  const cellW = (totalW - gapX * (cols - 1)) / cols;
-  const cellH = cellW; // Perfect 1:1 (0.8x0.8 ratio relative to canvas width)
+  const availableW = width - sideMargin * 2;
+  const availableH = height - topMargin - bottomSpace;
+  const gapX = 24;
+  const gapY = 28;
 
+  const cellW = (availableW - gapX * (cols - 1)) / cols;
+  const cellH = (availableH - gapY * (rows - 1)) / rows;
+  const polaroidPaddingBottom = 45; // Classic wide bottom border space
+
+  // 3. Draw individual Polaroid card background shadows and photos first
   images.slice(0, 6).forEach((img, i) => {
     const c = i % cols;
     const r = Math.floor(i / cols);
     const x = sideMargin + c * (cellW + gapX);
     const y = topMargin + r * (cellH + gapY);
+
+    ctx.save();
     
-    drawImageContain(ctx, img, x, y, cellW, cellH);
+    // Slight authentic polaroid tilt per frame
+    const tiltAngles = [-0.02, 0.015, -0.015, 0.02, -0.01, 0.015];
+    const angle = tiltAngles[i % tiltAngles.length];
+    const centerX = x + cellW / 2;
+    const centerY = y + cellH / 2;
+
+    ctx.translate(centerX, centerY);
+    ctx.rotate(angle);
+    ctx.translate(-centerX, -centerY);
+
+    // White Polaroid Card Border
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 8;
+
+    ctx.fillRect(
+      x - 10, 
+      y - 10, 
+      cellW + 20, 
+      cellH + 10 + polaroidPaddingBottom
+    );
+    ctx.shadowColor = 'transparent';
+
+    // Draw photo into slot using cover sizing
+    drawImageCover(ctx, img, x, y, cellW, cellH);
+
+    ctx.restore();
   });
 
+  // 4. Draw custom frame overlay on top, punching out the Polaroid card window areas
   if (customOverlayImg) {
     ctx.save();
     
@@ -483,7 +522,14 @@ export function renderCustomPNGTemplate({
         const r = Math.floor(i / cols);
         const x = sideMargin + c * (cellW + gapX);
         const y = topMargin + r * (cellH + gapY);
-        tempCtx.fillRect(x, y, cellW, cellH);
+        
+        // Punch out the exact polaroid card window frame region
+        tempCtx.fillRect(
+          x - 10, 
+          y - 10, 
+          cellW + 20, 
+          cellH + 10 + polaroidPaddingBottom
+        );
       });
       
       ctx.drawImage(tempCanvas, 0, 0);
@@ -494,15 +540,16 @@ export function renderCustomPNGTemplate({
     ctx.restore();
   }
 
+  // 5. Title and Subheading Text
   const font = getFontFamily(fontStyle);
   ctx.fillStyle = textColor || '#000000';
   ctx.textAlign = 'center';
 
-  ctx.font = `bold 48px ${font}`;
-  ctx.fillText(eventName.toUpperCase(), width / 2, 110);
+  ctx.font = `bold 36px ${font}`;
+  ctx.fillText(eventName.toUpperCase(), width / 2, height - 110);
 
-  ctx.font = `bold 22px ${font}`;
-  ctx.fillText(subtitleText.toUpperCase(), width / 2, height - 100);
+  ctx.font = `18px ${font}`;
+  ctx.fillText(subtitleText.toUpperCase(), width / 2, height - 70);
 
   drawStickers(ctx, width, height, stickerStyle);
 }
