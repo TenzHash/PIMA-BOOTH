@@ -408,6 +408,7 @@ export function renderTemplate5({
   drawStickers(ctx, width, height, stickerStyle);
 }
 
+// Custom PNG Frame Overlay Renderer (Includes title, subheading, and 0.8 square ratio slots)
 export function renderCustomPNGTemplate({
   ctx,
   images,
@@ -424,7 +425,7 @@ export function renderCustomPNGTemplate({
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
 
-  // 2. Define grid slot proportions (0.8 x 0.8 square ratio) - removed unused 'rows' variable
+  // 2. Define grid slot proportions (0.8 x 0.8 square ratio)
   const cols = 2;
   const sideMargin = 150;
   const topMargin = 220;
@@ -433,4 +434,4 @@ export function renderCustomPNGTemplate({
 
   const totalW = width - sideMargin * 2;
   const cellW = (totalW - gapX * (cols - 1)) / cols;
-  const cellH = cellW; // Strict square ratio ($1:1$)
+  const cellH = cellW; // Strict square ratio (1:1)
