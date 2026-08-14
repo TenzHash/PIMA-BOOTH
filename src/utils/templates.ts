@@ -292,7 +292,7 @@ export function renderTemplate2({
   drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Template 3: Polaroid Classic Vertical Strip (6 Shots)
+// Template 3: Authentic Polaroid Style Strip (6 Shots with wide bottom borders and card shadows)
 export function renderTemplate3({
   ctx,
   images,
@@ -308,47 +308,73 @@ export function renderTemplate3({
   applyCanvasGradient(ctx, width, height, gradientTheme);
 
   const font = getFontFamily(fontStyle);
-  const sideMargin = 90;
+  const sideMargin = 95;
   const topMargin = 70;
-  const bottomSpace = 220;
+  const bottomSpace = 200;
 
   const count = Math.min(images.length, 6);
-  const cols = count > 4 ? 2 : 1;
-  const rows = count > 4 ? 3 : 4;
+  const cols = 2;
+  const rows = 3;
 
   const availableW = width - sideMargin * 2;
   const availableH = height - topMargin - bottomSpace;
-  const gap = 20;
+  const gapX = 24;
+  const gapY = 28;
 
-  const cellW = cols === 2 ? (availableW - gap) / 2 : availableW;
-  const cellH = (availableH - gap * (rows - 1)) / rows;
+  const cellW = (availableW - gapX * (cols - 1)) / cols;
+  const cellH = (availableH - gapY * (rows - 1)) / rows;
 
   images.slice(0, cols * rows).forEach((img, i) => {
     const c = i % cols;
     const r = Math.floor(i / cols);
-    const x = sideMargin + c * (cellW + gap);
-    const y = topMargin + r * (cellH + gap);
+    const x = sideMargin + c * (cellW + gapX);
+    const y = topMargin + r * (cellH + gapY);
 
+    ctx.save();
+    
+    // Slight authentic polaroid tilt per frame
+    const tiltAngles = [-0.02, 0.015, -0.015, 0.02, -0.01, 0.015];
+    const angle = tiltAngles[i % tiltAngles.length];
+    const centerX = x + cellW / 2;
+    const centerY = y + cellH / 2;
+
+    ctx.translate(centerX, centerY);
+    ctx.rotate(angle);
+    ctx.translate(-centerX, -centerY);
+
+    // Polaroid Card Background (Thick bottom border for classic look)
     ctx.fillStyle = '#FFFFFF';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
-    ctx.shadowBlur = 12;
-    ctx.fillRect(x - 6, y - 6, cellW + 12, cellH + 12);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 8;
+
+    const polaroidPaddingBottom = 45; // Classic wide bottom border
+    ctx.fillRect(
+      x - 10, 
+      y - 10, 
+      cellW + 20, 
+      cellH + 10 + polaroidPaddingBottom
+    );
     ctx.shadowColor = 'transparent';
 
+    // Draw the inner photo inside the polaroid frame
     drawImageCover(ctx, img, x, y, cellW, cellH);
+
+    ctx.restore();
   });
 
+  // Footer Branding Text
   ctx.fillStyle = textColor;
   ctx.textAlign = 'center';
-  ctx.font = `bold 40px ${font}`;
-  ctx.fillText(eventName, width / 2, height - 120);
+  ctx.font = `bold 36px ${font}`;
+  ctx.fillText(eventName, width / 2, height - 110);
 
   ctx.font = `18px ${font}`;
-  ctx.fillText(subtitleText, width / 2, height - 75);
+  ctx.fillText(subtitleText, width / 2, height - 70);
 
   drawStickers(ctx, width, height, stickerStyle);
 }
-
 // Template 5: 4-Frame "lookUp" Photo Strip
 export function renderTemplate5({
   ctx,
