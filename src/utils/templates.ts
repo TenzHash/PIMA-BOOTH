@@ -12,7 +12,7 @@ export interface TemplateOptions {
   customOverlayImg?: HTMLImageElement | null;
 }
 
-// Standard cover scale for grid templates
+// Draw image into template slot with exact aspect-ratio matching (Cover / Fill)
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -57,7 +57,7 @@ function drawImageCover(
   ctx.restore();
 }
 
-// Contain scale helper for custom template slots to maintain ratios without cutting
+// Draw image into custom template slot scaled down (Contain) to prevent cutting or cropping
 function drawImageContain(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -312,7 +312,6 @@ export function renderTemplate3({
   const topMargin = 70;
   const bottomSpace = 200;
 
-  // Removed unused 'count' variable here
   const cols = 2;
   const rows = 3;
 
@@ -325,7 +324,53 @@ export function renderTemplate3({
   const cellH = (availableH - gapY * (rows - 1)) / rows;
 
   images.slice(0, cols * rows).forEach((img, i) => {
-    // ... rest of function remains identical
+    const c = i % cols;
+    const r = Math.floor(i / cols);
+    const x = sideMargin + c * (cellW + gapX);
+    const y = topMargin + r * (cellH + gapY);
+
+    ctx.save();
+    
+    const tiltAngles = [-0.02, 0.015, -0.015, 0.02, -0.01, 0.015];
+    const angle = tiltAngles[i % tiltAngles.length];
+    const centerX = x + cellW / 2;
+    const centerY = y + cellH / 2;
+
+    ctx.translate(centerX, centerY);
+    ctx.rotate(angle);
+    ctx.translate(-centerX, -centerY);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 8;
+
+    const polaroidPaddingBottom = 45;
+    ctx.fillRect(
+      x - 10, 
+      y - 10, 
+      cellW + 20, 
+      cellH + 10 + polaroidPaddingBottom
+    );
+    ctx.shadowColor = 'transparent';
+
+    drawImageCover(ctx, img, x, y, cellW, cellH);
+
+    ctx.restore();
+  });
+
+  ctx.fillStyle = textColor;
+  ctx.textAlign = 'center';
+  ctx.font = `bold 36px ${font}`;
+  ctx.fillText(eventName, width / 2, height - 110);
+
+  ctx.font = `18px ${font}`;
+  ctx.fillText(subtitleText, width / 2, height - 70);
+
+  drawStickers(ctx, width, height, stickerStyle);
+}
+
 // Template 5: 4-Frame "lookUp" Photo Strip
 export function renderTemplate5({
   ctx,
@@ -398,11 +443,9 @@ export function renderCustomPNGTemplate({
   customOverlayImg,
   stickerStyle = 'none',
 }: TemplateOptions) {
-  // 1. Base white background fill
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
 
-  // 2. Define grid slot proportions (0.8 x 0.8 square ratio)
   const cols = 2;
   const sideMargin = 150;
   const topMargin = 220;
@@ -411,9 +454,8 @@ export function renderCustomPNGTemplate({
 
   const totalW = width - sideMargin * 2;
   const cellW = (totalW - gapX * (cols - 1)) / cols;
-  const cellH = cellW; // Strict square ratio (1:1)
+  const cellH = cellW;
 
-  // 3. Draw captured photos first in the background slots
   images.slice(0, 6).forEach((img, i) => {
     const c = i % cols;
     const r = Math.floor(i / cols);
@@ -423,7 +465,6 @@ export function renderCustomPNGTemplate({
     drawImageContain(ctx, img, x, y, cellW, cellH);
   });
 
-  // 4. Draw custom frame overlay on top, punching out the square slots
   if (customOverlayImg) {
     ctx.save();
     
@@ -452,16 +493,13 @@ export function renderCustomPNGTemplate({
     ctx.restore();
   }
 
-  // 5. Draw Title and Subheading Text on top of the custom template
   const font = getFontFamily(fontStyle);
   ctx.fillStyle = textColor || '#000000';
   ctx.textAlign = 'center';
 
-  // Title (Near top header area)
   ctx.font = `bold 48px ${font}`;
   ctx.fillText(eventName.toUpperCase(), width / 2, 110);
 
-  // Subheading (Near bottom footer area)
   ctx.font = `bold 22px ${font}`;
   ctx.fillText(subtitleText.toUpperCase(), width / 2, height - 100);
 
