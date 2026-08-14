@@ -57,46 +57,6 @@ function drawImageCover(
   ctx.restore();
 }
 
-// Draw image into custom template slot scaled down (Contain) to prevent cutting or cropping
-function drawImageContain(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  x: number,
-  y: number,
-  w: number,
-  h: number
-) {
-  if (!img || !img.width || !img.height) return;
-
-  const imgAspect = img.width / img.height;
-  const targetAspect = w / h;
-
-  let renderW = w;
-  let renderH = h;
-  let offsetX = 0;
-  let offsetY = 0;
-
-  if (imgAspect > targetAspect) {
-    renderW = w;
-    renderH = w / imgAspect;
-    offsetY = (h - renderH) / 2;
-  } else {
-    renderH = h;
-    renderW = h * imgAspect;
-    offsetX = (w - renderW) / 2;
-  }
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(x, y, w, h);
-  ctx.clip();
-
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(x, y, w, h);
-
-  ctx.drawImage(img, x + offsetX, y + offsetY, renderW, renderH);
-  ctx.restore();
-}
 
 function getFontFamily(style?: string): string {
   switch (style) {
