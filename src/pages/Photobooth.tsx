@@ -281,7 +281,7 @@ export default function Photobooth() {
       }
 
       await fetchAvailableCameras();
-    } catch (err: any) {
+    } catch {
       setCameraError('Failed to initialize selected camera lens.');
     }
   }, [selectedDeviceId, fetchAvailableCameras]);
@@ -304,6 +304,7 @@ export default function Photobooth() {
     };
   }, [isCameraActive, showSetupModal, selectedTemplate, startCamera]);
 
+  // Exact 1:1 camera snapshot matching template frame coordinates
   const takeSingleFrame = (): HTMLImageElement | null => {
     if (!videoRef.current) return null;
     const video = videoRef.current;
@@ -311,9 +312,12 @@ export default function Photobooth() {
     const videoWidth = video.videoWidth || 1280;
     const videoHeight = video.videoHeight || 720;
 
+    // Slot dimensions matching templates.ts exactly:
+    // Template 5 (4-frame): 920 x 472 (~1.95:1 widescreen)
+    // 6-frame templates: 493 x 691 (~0.71:1 portrait)
     const isFourFrame = isFourFrameLayout;
-    const targetWidth = isFourFrame ? 1200 : 900;
-    const targetHeight = isFourFrame ? 800 : 1200;
+    const targetWidth = isFourFrame ? 920 : 493;
+    const targetHeight = isFourFrame ? 472 : 691;
 
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = targetWidth;
@@ -334,7 +338,7 @@ export default function Photobooth() {
       sourceX = (videoWidth - sourceWidth) / 2;
     } else {
       sourceHeight = videoWidth / targetAspect;
-      sourceY = 0;
+      sourceY = (videoHeight - sourceHeight) / 2;
     }
 
     if (isFrontCamera()) {
@@ -698,7 +702,7 @@ export default function Photobooth() {
       {photos.length < requiredPhotoCount ? (
         <main className="w-full flex-1 flex flex-col justify-center items-center gap-4 my-auto">
           {isFourFrameLayout ? (
-            <div className="relative w-full aspect-[3/2] max-w-[340px] rounded-3xl bg-black overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
+            <div className="relative w-full aspect-[920/472] max-w-[380px] rounded-3xl bg-black overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
               {cameraError ? (
                 <div className="p-6 text-center text-red-400 flex flex-col items-center gap-2.5">
                   <AlertCircle className="w-10 h-10 text-red-500" />
@@ -711,9 +715,9 @@ export default function Photobooth() {
                     autoPlay
                     playsInline
                     muted
-                    className={`w-full h-full object-cover object-top ${isFrontCamera() ? '-scale-x-100' : ''}`}
+                    className={`w-full h-full object-cover ${isFrontCamera() ? '-scale-x-100' : ''}`}
                   />
-                  <div className="absolute inset-2 pointer-events-none border border-dashed border-white/30 rounded-2xl">
+                  <div className="absolute inset-2 pointer-events-none border border-dashed border-white/40 rounded-2xl">
                     <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-red-500" />
                     <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-red-500" />
                     <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-red-500" />
@@ -736,7 +740,7 @@ export default function Photobooth() {
               )}
             </div>
           ) : (
-            <div className="relative w-full aspect-[3/4] max-w-[400px] rounded-[2rem] bg-black overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
+            <div className="relative w-full aspect-[493/691] max-w-[340px] rounded-[2rem] bg-black overflow-hidden border-2 border-red-500/80 shadow-2xl flex items-center justify-center">
               {cameraError ? (
                 <div className="p-6 text-center text-red-400 flex flex-col items-center gap-2.5">
                   <AlertCircle className="w-10 h-10 text-red-500" />
@@ -749,23 +753,13 @@ export default function Photobooth() {
                     autoPlay
                     playsInline
                     muted
-                    className={`w-full h-full object-cover object-top ${isFrontCamera() ? '-scale-x-100' : ''}`}
+                    className={`w-full h-full object-cover ${isFrontCamera() ? '-scale-x-100' : ''}`}
                   />
-                  <div className="absolute inset-[9%_7%_10%] pointer-events-none border-[3px] border-dashed border-white/55 rounded-[1.5rem]">
-                    <div className="absolute top-4 left-4 w-7 h-7 border-t-[4px] border-l-[4px] border-red-500" />
-                    <div className="absolute top-4 right-4 w-7 h-7 border-t-[4px] border-r-[4px] border-red-500" />
-                    <div className="absolute bottom-4 left-4 w-7 h-7 border-b-[4px] border-l-[4px] border-red-500" />
-                    <div className="absolute bottom-4 right-4 w-7 h-7 border-b-[4px] border-r-[4px] border-red-500" />
-                  </div>
-                  <div className="absolute top-0 left-0 right-0 h-[13%] bg-black/55 backdrop-blur-[2px] flex items-center justify-center z-10">
-                    <span className="text-[11px] sm:text-xs font-black tracking-wide text-white uppercase">
-                      Position Face Here
-                    </span>
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 h-[10%] bg-black/55 backdrop-blur-[2px] flex items-center justify-center z-10">
-                    <span className="text-[10px] sm:text-[11px] font-bold tracking-wide text-white/90 uppercase">
-                      Crop Safety Zone
-                    </span>
+                  <div className="absolute inset-3 pointer-events-none border border-dashed border-white/40 rounded-2xl">
+                    <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 border-red-500" />
+                    <div className="absolute top-3 right-3 w-4 h-4 border-t-2 border-r-2 border-red-500" />
+                    <div className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 border-red-500" />
+                    <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 border-red-500" />
                   </div>
 
                   <div className="absolute top-2 right-2 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-full text-[11px] font-black border border-white/15 text-white shadow-lg z-20">
@@ -785,11 +779,11 @@ export default function Photobooth() {
             </div>
           )}
 
-          <div className="w-full max-w-[400px] flex gap-2">
+          <div className="w-full max-w-[380px] flex gap-2">
             <button
               onClick={() => setShowSetupModal(true)}
               disabled={isCapturingSeries}
-              className="p-4 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-2xl text-gray-300"
+              className="p-4 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-2xl text-gray-300 transition"
               title="Options"
             >
               <Settings className="w-5 h-5" />
