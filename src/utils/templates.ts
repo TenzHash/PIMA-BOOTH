@@ -157,7 +157,7 @@ function drawStickers(
   } else if (stickerStyle === 'vintage-badge') {
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#DC2626';
-    ctx.fillText('● OFFICIAL MEMORY ●', width / 2, 45);
+    ctx.fillText('● WELCOME PARTY ●', width / 2, 45);
   }
 
   ctx.restore();
