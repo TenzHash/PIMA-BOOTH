@@ -408,12 +408,16 @@ export function renderTemplate5({
   drawStickers(ctx, width, height, stickerStyle);
 }
 
-// Custom PNG Frame Overlay Renderer (Punches clean holes in the overlay center so photos show through properly)
+// Custom PNG Frame Overlay Renderer (Includes title, subheading, and 0.8 square ratio slots)
 export function renderCustomPNGTemplate({
   ctx,
   images,
   width,
   height,
+  eventName = 'PIMA ALBAY',
+  subtitleText = 'WELCOME PARTY 2026',
+  textColor = '#000000',
+  fontStyle = 'sans-serif',
   customOverlayImg,
   stickerStyle = 'none',
 }: TemplateOptions) {
@@ -421,21 +425,19 @@ export function renderCustomPNGTemplate({
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
 
-  // 2. Define the exact slot positions matching your template window frames
-  const sideMargin = 120; 
-  const topMargin = 180;  
-  const bottomMargin = 220; 
-  const gapX = 24;
-  const gapY = 24;
-  const rows = 3;
+  // 2. Define grid slot proportions (0.8 x 0.8 square ratio)
   const cols = 2;
+  const rows = 3;
+  const sideMargin = 150;
+  const topMargin = 220;
+  const gapX = 40;
+  const gapY = 30;
 
   const totalW = width - sideMargin * 2;
-  const totalH = height - topMargin - bottomMargin;
   const cellW = (totalW - gapX * (cols - 1)) / cols;
-  const cellH = (totalH - gapY * (rows - 1)) / rows;
+  const cellH = cellW; // Strict square ratio ($1:1$)
 
-  // 3. Draw captured photos FIRST in the background slots
+  // 3. Draw captured photos first in the background slots
   images.slice(0, 6).forEach((img, i) => {
     const c = i % cols;
     const r = Math.floor(i / cols);
@@ -445,12 +447,10 @@ export function renderCustomPNGTemplate({
     drawImageContain(ctx, img, x, y, cellW, cellH);
   });
 
-  // 4. Draw custom frame overlay on top, but punch out the slot rectangles first 
-  // so any solid white/opaque background in the middle of your PNG frame becomes transparent
+  // 4. Draw custom frame overlay on top, punching out the square slots
   if (customOverlayImg) {
     ctx.save();
     
-    // Create a temporary canvas/layer to handle the frame cutouts cleanly
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = width;
     tempCanvas.height = height;
@@ -459,7 +459,6 @@ export function renderCustomPNGTemplate({
     if (tempCtx) {
       tempCtx.drawImage(customOverlayImg, 0, 0, width, height);
       
-      // Punch out the photo slots from the overlay image
       tempCtx.globalCompositeOperation = 'destination-out';
       images.slice(0, 6).forEach((_, i) => {
         const c = i % cols;
@@ -469,7 +468,6 @@ export function renderCustomPNGTemplate({
         tempCtx.fillRect(x, y, cellW, cellH);
       });
       
-      // Draw the modified frame overlay with transparent windows on top of the photos
       ctx.drawImage(tempCanvas, 0, 0);
     } else {
       ctx.drawImage(customOverlayImg, 0, 0, width, height);
@@ -477,6 +475,19 @@ export function renderCustomPNGTemplate({
     
     ctx.restore();
   }
+
+  // 5. Draw Title and Subheading Text on top of the custom template
+  const font = getFontFamily(fontStyle);
+  ctx.fillStyle = textColor || '#000000';
+  ctx.textAlign = 'center';
+
+  // Title (Near top header area)
+  ctx.font = `bold 48px ${font}`;
+  ctx.fillText(eventName.toUpperCase(), width / 2, 110);
+
+  // Subheading (Near bottom footer area)
+  ctx.font = `bold 22px ${font}`;
+  ctx.fillText(subtitleText.toUpperCase(), width / 2, height - 100);
 
   drawStickers(ctx, width, height, stickerStyle);
 }
